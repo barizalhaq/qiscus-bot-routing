@@ -1,0 +1,28 @@
+{
+    "message": "1. Cara Pesan\n2. Return Produk\n3. Tanya Produk\n4. Status Pesanan\n5. Cara menjadi Reseller & Pembelian partai besar\n6. Alamat Toko\n7. Cek Nomor Resi\n0. Live Chat Dengan Agent Brodo",
+    "options": [
+        {
+            "message": "cara pesan",
+            "resolve": true
+        },
+        {
+            "message": "1.Syarat & Ketentuan\n0. Batal",
+            "options": [
+                {
+                    "message": "Silahkan tunggu sebentar",
+                    "handover": true
+                }
+            ]
+        },
+        {
+            "message": "Silahkan input nama produk",
+            "input": true,
+            "handover": true
+        },
+        {
+            "message": "Silahkan input nama produk",
+            "input": true,
+            "handover": true
+        }
+    ]
+}
