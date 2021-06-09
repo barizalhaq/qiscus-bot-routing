@@ -114,3 +114,49 @@ type Meta struct {
 	PerPage    int `json:"per_page"`
 	TotalCount int `json:"total_count"`
 }
+
+type OfficeHourResp struct {
+	Data struct {
+		OnlineMessage          string       `json:"online_message"`
+		OfflineMessage         string       `json:"offline_message"`
+		Timezone               string       `json:"timezone"`
+		SendOnlineIfResolved   bool         `json:"send_online_if_resolved"`
+		SendOfflineEachMessage bool         `json:"send_offline_each_message"`
+		OfficeHours            []OfficeHour `json:"office_hours"`
+	} `json:"data"`
+}
+
+type OfficeHour struct {
+	ID        int    `json:"id"`
+	AppID     int    `json:"app_id"`
+	Day       int    `json:"day"`
+	Starttime string `json:"starttime"`
+	Endtime   string `json:"endtime"`
+	CreatedAt string `json:"created_at"`
+	UpdatedAt string `json:"updated_at"`
+}
+
+type WebhookResolved struct {
+	Customer struct {
+		AdditionalInfo []interface{} `json:"additional_info"`
+		Avatar         string        `json:"avatar"`
+		Name           string        `json:"name"`
+		UserID         string        `json:"user_id"`
+	} `json:"customer"`
+	ResolvedBy struct {
+		Email       string `json:"email"`
+		ID          int    `json:"id"`
+		IsAvailable bool   `json:"is_available"`
+		Name        string `json:"name"`
+		Type        string `json:"type"`
+	} `json:"resolved_by"`
+	Service struct {
+		FirstCommentID string `json:"first_comment_id"`
+		ID             int    `json:"id"`
+		IsResolved     bool   `json:"is_resolved"`
+		LastCommentID  int    `json:"last_comment_id"`
+		Notes          string `json:"notes"`
+		RoomID         string `json:"room_id"`
+		Source         string `json:"source"`
+	} `json:"service"`
+}

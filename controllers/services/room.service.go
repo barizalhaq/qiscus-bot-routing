@@ -18,8 +18,8 @@ type RoomService interface {
 	StateExist(room entities.Room) bool
 	QismoRoomInfo(ID string) (viewmodel.QismoRoomInfo, error)
 	AutoResolveTag(ID string) error
-	AutoHandover(ID string) error
 	Handover(ID string) error
+	Deactivate(ID string) error
 }
 
 type roomService struct {
@@ -102,16 +102,13 @@ func (s *roomService) AutoResolveTag(ID string) error {
 	return s.roomRepository.TagRoom(ID, os.Getenv("AUTO_RESOLVE_TAG"))
 }
 
-func (s *roomService) AutoHandover(ID string) error {
-	err := s.roomRepository.ResetBotLayers(ID)
+func (s *roomService) Handover(ID string) error {
+	agents, err := s.multichannelRepository.GetAllAgents(18)
 	if err != nil {
 		return err
 	}
-	return s.roomRepository.AutoAssign(ID)
-}
 
-func (s *roomService) Handover(ID string) error {
-	agents, err := s.multichannelRepository.GetAllAgents(18)
+	err = s.roomRepository.ResetBotLayers(ID)
 	if err != nil {
 		return err
 	}
@@ -122,5 +119,14 @@ func (s *roomService) Handover(ID string) error {
 		return err
 	}
 
+	err = s.Deactivate(ID)
+	if err != nil {
+		return err
+	}
+
 	return nil
+}
+
+func (s *roomService) Deactivate(ID string) error {
+	return s.roomRepository.ToggleBotInRoom(ID, false)
 }

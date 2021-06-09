@@ -32,14 +32,20 @@ func (controller *messageController) MessageReceived(ctx echo.Context) error {
 	}
 
 	for _, draft := range drafts {
-		if !draft.Layer.Handover {
+		if !draft.Layer.Handover && !draft.Layer.Resolve {
 			err = controller.roomService.SendBotMessage(draft.Room.Payload.Room.ID, draft.Message)
 			if err != nil {
 				return ctx.JSON(http.StatusUnprocessableEntity, viewmodel.ErrorResponse{Message: err.Error()})
 			}
 		}
 
-		if draft.Layer.Resolve {
+		if draft.Layer.Resolve && !draft.Layer.Handover {
+			if len(draft.Layer.Message) > 0 {
+				err = controller.roomService.SendBotMessage(draft.Room.Payload.Room.ID, draft.Message)
+				if err != nil {
+					return ctx.JSON(http.StatusUnprocessableEntity, viewmodel.ErrorResponse{Message: err.Error()})
+				}
+			}
 			qismoRoomInfo, err := controller.roomService.QismoRoomInfo(draft.Room.Payload.Room.ID)
 			if err != nil {
 				return ctx.JSON(http.StatusUnprocessableEntity, viewmodel.ErrorResponse{Message: err.Error()})

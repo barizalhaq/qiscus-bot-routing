@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 
 	"github.com/labstack/echo/v4"
 )
@@ -30,7 +31,12 @@ func (controller *uploadController) Upload(ctx echo.Context) error {
 	}
 	defer src.Close()
 
-	dir := fmt.Sprintf("layer/%s", file.Filename)
+	filename := file.Filename
+	if os.Getenv("ALL_IN_ONE_JSON_ROUTE") == "true" {
+		filename = fmt.Sprintf("%s%s", "layer", filepath.Ext(filename))
+	}
+
+	dir := fmt.Sprintf("layer/%s", filename)
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		os.MkdirAll("./layer", 0700)
 	}

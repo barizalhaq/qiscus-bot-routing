@@ -11,7 +11,7 @@ type RequestService interface {
 	ValidateRequest(ctx echo.Context, request interface{}) (interface{}, error)
 }
 
-type requestService struct{
+type requestService struct {
 	validator *validator.Validate
 }
 

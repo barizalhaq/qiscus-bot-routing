@@ -4,8 +4,11 @@ import (
 	"bot-routing-engine/entities/viewmodel"
 	"bot-routing-engine/repositories"
 	"encoding/json"
+	"fmt"
 	"os"
 	"strconv"
+
+	"time"
 )
 
 type MessageService interface {
@@ -23,8 +26,6 @@ func NewMessageService(multichannelRepository repositories.MultichannelRepositor
 
 func (s *messageService) Determine(request interface{}) (drafts []viewmodel.Draft, err error) {
 	input := request.(*viewmodel.WebhookRequest)
-
-	// multichannel working hour
 
 	var roomOption viewmodel.Option
 	json.Unmarshal([]byte(input.Payload.Room.Options), &roomOption)
@@ -44,6 +45,17 @@ func (s *messageService) Determine(request interface{}) (drafts []viewmodel.Draf
 		Layer: layer,
 	}
 
+	if !s.isOnWorkingHour() {
+		notInWorkingHourDraft := &draft
+		notInWorkingHourDraft.Layer = viewmodel.Layer{
+			Message: os.Getenv("NOT_IN_WORKING_HOUR_WORDING"),
+			Resolve: true,
+		}
+		drafts = append(drafts, *notInWorkingHourDraft)
+
+		return
+	}
+
 	var states []int
 	option := input.Payload.Message.Text
 	if !s.room.StateExist(roomInfo) {
@@ -51,7 +63,11 @@ func (s *messageService) Determine(request interface{}) (drafts []viewmodel.Draf
 		draft.Message = layer.Message
 		drafts = append(drafts, draft)
 	} else {
-		if directKeypad, directAssignEnable := os.LookupEnv("DIRECT_ASSIGN_AGENT_KEYPAD"); directAssignEnable && input.Payload.Message.Text == directKeypad {
+		var jsonOptions map[string]json.RawMessage
+		json.Unmarshal([]byte(roomInfo.Results.Rooms[0].Options), &jsonOptions)
+		json.Unmarshal(jsonOptions["bot_layer"], &states)
+
+		if directKeypad, directAssignEnable := os.LookupEnv("DIRECT_ASSIGN_AGENT_KEYPAD"); directAssignEnable && input.Payload.Message.Text == directKeypad && len(states) == 0 {
 			directHandoverDraft := &draft
 			directHandoverDraft.Layer = viewmodel.Layer{
 				Message:  "Mohon tunggu sebentar, Anda akan terhubung dengan agent Brodo",
@@ -60,10 +76,6 @@ func (s *messageService) Determine(request interface{}) (drafts []viewmodel.Draf
 			drafts = append(drafts, draft)
 			return
 		}
-
-		var jsonOptions map[string]json.RawMessage
-		json.Unmarshal([]byte(roomInfo.Results.Rooms[0].Options), &jsonOptions)
-		json.Unmarshal(jsonOptions["bot_layer"], &states)
 
 		choosenLayer, err := NewLayerService().DetermineLayer(option, states, layer)
 		if err != nil {
@@ -74,14 +86,54 @@ func (s *messageService) Determine(request interface{}) (drafts []viewmodel.Draf
 			return drafts, nil
 		}
 
-		optionInt, _ := strconv.Atoi(option)
-		states = append(states, optionInt)
-
+		if prevLayerKeypad, prevLayerKeypadEnable := os.LookupEnv("RETURN_PREVIOUS_LAYER_KEYPAD"); prevLayerKeypadEnable &&
+			input.Payload.Message.Text == prevLayerKeypad && len(states) > 0 {
+			states = states[:len(states)-1]
+		} else {
+			optionInt, _ := strconv.Atoi(option)
+			states = append(states, optionInt)
+		}
 		s.room.UpdateBotState(input.Payload.Room.ID, states, roomInfo)
 		draft.Message = choosenLayer.Message
 		draft.Layer = choosenLayer
 		drafts = append(drafts, draft)
+		return drafts, nil
 	}
 
 	return
+}
+
+func (s *messageService) isOnWorkingHour() bool {
+	officeHour, _ := s.multichannelRepository.OfficeHour()
+	loc, _ := time.LoadLocation(os.Getenv("TIMEZONE"))
+
+	now := time.Now().In(loc)
+	for _, day := range officeHour.Data.OfficeHours {
+		if int(now.Weekday()) == day.Day || int(time.Saturday)+1 == day.Day {
+			officeHourStartTime := fmt.Sprintf("%d-%d-%d %s", now.Year(), now.Month(), now.Day(), day.Starttime)
+			officeHourEndTime := fmt.Sprintf("%d-%d-%d %s", now.Year(), now.Month(), now.Day(), day.Endtime)
+
+			layout := "2006-1-2 15:04"
+			parsedStartTime, err := time.Parse(layout, officeHourStartTime)
+			if err != nil {
+				panic(err.Error())
+			}
+			parsedEndTime, err := time.Parse(layout, officeHourEndTime)
+			if err != nil {
+				panic(err.Error())
+			}
+
+			if now.Local().Hour() >= parsedStartTime.Hour() && now.Local().Minute() >= parsedStartTime.Minute() {
+				if now.Local().Hour() <= parsedEndTime.Hour() {
+					return true
+				} else if now.Local().Hour() == parsedEndTime.Hour() {
+					return now.Local().Minute() <= parsedEndTime.Minute()
+				}
+			}
+
+			return false
+		}
+	}
+
+	return false
 }

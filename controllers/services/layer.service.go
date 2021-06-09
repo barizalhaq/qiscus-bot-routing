@@ -23,7 +23,13 @@ func NewLayerService() *layerService {
 }
 
 func (ls *layerService) GetLayer(source int) (viewmodel.Layer, error) {
-	jsonFile, err := os.Open(fmt.Sprintf("./layer/%d.json", source))
+	filePath := fmt.Sprintf("./layer/%d.json", source)
+
+	if os.Getenv("ALL_IN_ONE_JSON_ROUTE") == "true" {
+		filePath = "./layer/layer.json"
+	}
+
+	jsonFile, err := os.Open(filePath)
 	if err != nil {
 		return viewmodel.Layer{}, err
 	}
@@ -42,14 +48,18 @@ func (s *layerService) getLatestLayer(states []int, layer viewmodel.Layer) viewm
 	for _, state := range states {
 		layer = layer.Options[state-1]
 	}
-	fmt.Println(layer)
 	return layer
 }
 
 func (s *layerService) DetermineLayer(state string, states []int, layer viewmodel.Layer) (viewmodel.Layer, error) {
 	if len(states) > 0 {
+		if prevLayerKeypad, prevLayerKeypadEnable := os.LookupEnv("RETURN_PREVIOUS_LAYER_KEYPAD"); prevLayerKeypadEnable &&
+			state == prevLayerKeypad {
+			removedLastState := states[:len(states)-1]
+			return s.getLatestLayer(removedLastState, layer), nil
+		}
+
 		layer = s.getLatestLayer(states, layer)
-		fmt.Println(layer)
 		if layer.Handover || layer.Resolve {
 			return layer, nil
 		}

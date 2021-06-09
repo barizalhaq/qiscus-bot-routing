@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 )
 
 type RoomRepository interface {
@@ -22,8 +23,8 @@ type RoomRepository interface {
 	QismoRoomInfo(ID string) (viewmodel.QismoRoomInfo, error)
 	ResetBotLayers(ID string) error
 	TagRoom(ID string, tag string) error
-	AutoAssign(ID string) error
 	AssignAgent(ID string, agentID string) error
+	ToggleBotInRoom(ID string, activate bool) error
 }
 
 type roomRepository struct {
@@ -215,23 +216,21 @@ func (r *roomRepository) ResetBotLayers(ID string) error {
 }
 
 func (r *roomRepository) TagRoom(ID string, tag string) error {
-	url := fmt.Sprintf("%s/api/v1/room_tag/create", r.qismoUrl)
+	apiUrl := fmt.Sprintf("%s/api/v1/room_tag/create", r.qismoUrl)
 	method := "POST"
-	payload, err := json.Marshal(map[string]string{
-		"room_id": ID,
-		"tag":     os.Getenv("AUTO_RESOLVE_TAG"),
-	})
-	if err != nil {
-		return err
-	}
+
+	formData := url.Values{}
+	formData.Set("room_id", ID)
+	formData.Set("tag", os.Getenv("AUTO_RESOLVE_TAG"))
 
 	client := &http.Client{}
 
-	req, err := http.NewRequest(method, url, bytes.NewBuffer(payload))
+	req, err := http.NewRequest(method, apiUrl, bytes.NewBufferString(formData.Encode()))
 	if err != nil {
 		return err
 	}
 
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
 	req.Header.Set("Authorization", r.multichannel.GetToken())
 	req.Header.Set("Qiscus-App-Id", r.multichannel.GetAppID())
 
@@ -243,46 +242,11 @@ func (r *roomRepository) TagRoom(ID string, tag string) error {
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
-
-	logger.WriteOutbondLog(r.outbondLogger, resp, string(body), string(payload))
-
-	return nil
-}
-
-func (r *roomRepository) AutoAssign(ID string) error {
-	url := fmt.Sprintf("%s/api/v1/admin/service/allocate_assign_agent", r.qismoUrl)
-	method := "POST"
-
-	payload, err := json.Marshal(map[string]string{
-		"room_id": ID,
-	})
 	if err != nil {
 		return err
 	}
 
-	client := &http.Client{}
-	req, err := http.NewRequest(method, url, bytes.NewBuffer(payload))
-	if err != nil {
-		return err
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Qiscus-App-Id", r.multichannel.GetAppID())
-	req.Header.Set("Qiscus-Secret-Key", r.multichannel.GetSecret())
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-
-	defer resp.Body.Close()
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-
-	logger.WriteOutbondLog(r.outbondLogger, resp, string(body), string(payload))
+	logger.WriteOutbondLog(r.outbondLogger, resp, string(body), formData.Encode())
 
 	return nil
 }
@@ -304,6 +268,40 @@ func (r *roomRepository) AssignAgent(ID string, agentID string) error {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Qiscus-App-Id", r.multichannel.GetAppID())
 	req.Header.Set("Qiscus-Secret-Key", r.multichannel.GetSecret())
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	logger.WriteOutbondLog(r.outbondLogger, resp, string(body), formData.Encode())
+
+	return nil
+}
+
+func (r *roomRepository) ToggleBotInRoom(ID string, activate bool) error {
+	apiUrl := fmt.Sprintf("%s/bot/%s/activate", r.qismoUrl, ID)
+	method := "POST"
+
+	formData := url.Values{}
+	formData.Set("is_active", strconv.FormatBool(activate))
+
+	client := &http.Client{}
+
+	req, err := http.NewRequest(method, apiUrl, bytes.NewBufferString(formData.Encode()))
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Authorization", r.multichannel.GetToken())
 
 	resp, err := client.Do(req)
 	if err != nil {

@@ -22,6 +22,7 @@ func New(e *echo.Echo, multichannel *entities.Multichannel, outbondLogger *log.L
 
 func (r *route) RegisterRoute() {
 	apiGroup := r.e.Group("/api/v1")
+
 	messageGroup := apiGroup.Group("/message")
 	appGroup := apiGroup.Group("/app")
 

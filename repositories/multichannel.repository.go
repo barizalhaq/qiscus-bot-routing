@@ -16,6 +16,7 @@ import (
 type MultichannelRepository interface {
 	SendBotMessage(roomID string, message string) error
 	GetAllAgents(limit int) (viewmodel.AgentsResponse, error)
+	OfficeHour() (viewmodel.OfficeHourResp, error)
 }
 
 type multichannelRepository struct {
@@ -113,4 +114,39 @@ func (r *multichannelRepository) GetAllAgents(limit int) (viewmodel.AgentsRespon
 	}
 
 	return agentsResp, nil
+}
+
+func (r *multichannelRepository) OfficeHour() (viewmodel.OfficeHourResp, error) {
+	url := fmt.Sprintf("%s/api/v1/admin/office_hours", r.qismoURL)
+	method := "GET"
+
+	client := &http.Client{}
+
+	req, err := http.NewRequest(method, url, nil)
+	if err != nil {
+		return viewmodel.OfficeHourResp{}, err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", r.multichannel.GetToken())
+	req.Header.Set("Qiscus-App-Id", r.multichannel.GetAppID())
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return viewmodel.OfficeHourResp{}, err
+	}
+
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return viewmodel.OfficeHourResp{}, err
+	}
+
+	logger.WriteOutbondLog(r.outbondLogger, resp, string(body), "")
+
+	var officeHour viewmodel.OfficeHourResp
+	json.Unmarshal(body, &officeHour)
+
+	return officeHour, nil
 }
