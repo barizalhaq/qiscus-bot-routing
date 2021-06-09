@@ -19,10 +19,7 @@ func init() {
 	loggers["inbound"] = logger.InitLogger("./logs/inbound", "")
 	loggers["outbond"] = logger.InitLogger("./logs/outbond", "")
 
-	err := godotenv.Load(".env")
-	if err != nil {
-		panic(err)
-	}
+	godotenv.Load(".env")
 }
 
 func main() {
