@@ -1,10 +1,10 @@
 package entities
 
-type Multichannel struct{
-	appID string
+type Multichannel struct {
+	appID      string
 	adminEmail string
-	secret string
-	token string
+	secret     string
+	token      string
 }
 
 func NewMultichannel(appID string, adminEmail string, secret string, token string) *Multichannel {
@@ -21,4 +21,8 @@ func (m *Multichannel) GetAppID() string {
 
 func (m *Multichannel) GetAdminEmail() string {
 	return m.adminEmail
+}
+
+func (m *Multichannel) GetToken() string {
+	return m.token
 }

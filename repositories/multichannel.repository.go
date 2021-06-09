@@ -15,6 +15,7 @@ import (
 
 type MultichannelRepository interface {
 	SendBotMessage(roomID string, message string) error
+	GetAllAgents(limit int) (viewmodel.AgentsResponse, error)
 }
 
 type multichannelRepository struct {
@@ -70,4 +71,46 @@ func (r *multichannelRepository) SendBotMessage(roomID string, message string) e
 	logger.WriteOutbondLog(r.outbondLogger, res, string(body), "")
 
 	return nil
+}
+
+func (r *multichannelRepository) GetAllAgents(limit int) (viewmodel.AgentsResponse, error) {
+	url := fmt.Sprintf("%s/api/v2/admin/agents?limit=%d", r.qismoURL, limit)
+	method := "GET"
+
+	client := &http.Client{}
+
+	req, err := http.NewRequest(method, url, nil)
+	if err != nil {
+		return viewmodel.AgentsResponse{}, err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", r.multichannel.GetToken())
+	req.Header.Set("Qiscus-App-Id", r.multichannel.GetAppID())
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return viewmodel.AgentsResponse{}, err
+	}
+
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return viewmodel.AgentsResponse{}, err
+	}
+
+	logger.WriteOutbondLog(r.outbondLogger, resp, string(body), "")
+
+	var agentsResp viewmodel.AgentsResponse
+	json.Unmarshal(body, &agentsResp)
+
+	if agentsResp.Meta.PerPage < agentsResp.Meta.TotalCount {
+		agentsResp, err = r.GetAllAgents(agentsResp.Meta.TotalCount)
+		if err != nil {
+			return viewmodel.AgentsResponse{}, err
+		}
+	}
+
+	return agentsResp, nil
 }

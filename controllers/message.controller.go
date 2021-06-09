@@ -4,6 +4,7 @@ import (
 	"bot-routing-engine/controllers/services"
 	"bot-routing-engine/entities/viewmodel"
 	"net/http"
+	"strconv"
 
 	"github.com/labstack/echo/v4"
 )
@@ -12,10 +13,11 @@ type messageController struct {
 	layerService   services.LayerService
 	requestService services.RequestService
 	messageService services.MessageService
+	roomService    services.RoomService
 }
 
-func NewMessageController(layerService services.LayerService, requestService services.RequestService, messageService services.MessageService) *messageController {
-	return &messageController{layerService, requestService, messageService}
+func NewMessageController(layerService services.LayerService, requestService services.RequestService, messageService services.MessageService, roomService services.RoomService) *messageController {
+	return &messageController{layerService, requestService, messageService, roomService}
 }
 
 func (controller *messageController) MessageReceived(ctx echo.Context) error {
@@ -24,17 +26,37 @@ func (controller *messageController) MessageReceived(ctx echo.Context) error {
 		return ctx.JSON(http.StatusUnprocessableEntity, viewmodel.ErrorResponse{Message: err.Error()})
 	}
 
-	layer, room, err := controller.messageService.Determine(reqBody)
+	drafts, err := controller.messageService.Determine(reqBody)
 	if err != nil {
 		return ctx.JSON(http.StatusUnprocessableEntity, viewmodel.ErrorResponse{Message: err.Error()})
 	}
 
-	if !layer.Handover {
-		err = controller.messageService.SendBotMessage(room.Results.Rooms[0].ID, layer.Message)
-	}
+	for _, draft := range drafts {
+		if !draft.Layer.Handover {
+			err = controller.roomService.SendBotMessage(draft.Room.Payload.Room.ID, draft.Message)
+			if err != nil {
+				return ctx.JSON(http.StatusUnprocessableEntity, viewmodel.ErrorResponse{Message: err.Error()})
+			}
+		}
 
-	if err != nil {
-		return ctx.JSON(http.StatusUnprocessableEntity, viewmodel.ErrorResponse{Message: err.Error()})
+		if draft.Layer.Resolve {
+			qismoRoomInfo, err := controller.roomService.QismoRoomInfo(draft.Room.Payload.Room.ID)
+			if err != nil {
+				return ctx.JSON(http.StatusUnprocessableEntity, viewmodel.ErrorResponse{Message: err.Error()})
+			}
+
+			err = controller.roomService.Resolve(draft.Room.Payload.Room.ID, strconv.Itoa(qismoRoomInfo.Data.ID))
+			if err != nil {
+				return ctx.JSON(http.StatusUnprocessableEntity, viewmodel.ErrorResponse{Message: err.Error()})
+			}
+		}
+
+		if draft.Layer.Handover {
+			err := controller.roomService.Handover(draft.Room.Payload.Room.ID)
+			if err != nil {
+				return ctx.JSON(http.StatusUnprocessableEntity, viewmodel.ErrorResponse{Message: err.Error()})
+			}
+		}
 	}
 
 	return ctx.String(http.StatusOK, "")

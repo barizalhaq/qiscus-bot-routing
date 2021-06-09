@@ -3,3 +3,4 @@
 vendor
 dbconfig.yml
 logs/**
+layer/**

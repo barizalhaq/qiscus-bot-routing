@@ -11,8 +11,8 @@ import (
 )
 
 type route struct {
-	e *echo.Echo
-	Multichannel *entities.Multichannel
+	e             *echo.Echo
+	Multichannel  *entities.Multichannel
 	outbondLogger *log.Logger
 }
 
@@ -30,9 +30,10 @@ func (r *route) RegisterRoute() {
 
 	layerService := services.NewLayerService()
 	requestService := services.NewRequestService()
-	messageService := services.NewMessageService(roomRepo, mulchanRepo)
-	messageController := controllers.NewMessageController(layerService, requestService, messageService)
+	roomService := services.NewRoomService(mulchanRepo, roomRepo)
+	messageService := services.NewMessageService(mulchanRepo, *roomService)
 
+	messageController := controllers.NewMessageController(layerService, requestService, messageService, roomService)
 	uploadController := controllers.NewUploadController()
 
 	messageGroup.POST("/received", messageController.MessageReceived)

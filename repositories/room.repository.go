@@ -2,21 +2,33 @@ package repositories
 
 import (
 	"bot-routing-engine/entities"
+	"bot-routing-engine/entities/viewmodel"
 	"bot-routing-engine/utils/logger"
+	"bytes"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 )
 
 type RoomRepository interface {
-	GetRoomInfo(ID string) (entities.Room, error)
+	SDKGetRoomInfo(ID string) (entities.Room, error)
 	StateExist(room entities.Room) bool
+	UpdateRoom(ID string, options string) error
+	Resolve(ID string, lastCommentID string) error
+	QismoRoomInfo(ID string) (viewmodel.QismoRoomInfo, error)
+	ResetBotLayers(ID string) error
+	TagRoom(ID string, tag string) error
+	AutoAssign(ID string) error
+	AssignAgent(ID string, agentID string) error
 }
 
 type roomRepository struct {
 	sdkURL        string
+	qismoUrl      string
 	multichannel  *entities.Multichannel
 	outbondLogger *log.Logger
 }
@@ -24,12 +36,13 @@ type roomRepository struct {
 func NewRoomRepository(multichannel *entities.Multichannel, outbondLogger *log.Logger) *roomRepository {
 	return &roomRepository{
 		sdkURL:        os.Getenv("SDK_URL"),
+		qismoUrl:      os.Getenv("QISMO_BASE_URL"),
 		multichannel:  multichannel,
 		outbondLogger: outbondLogger,
 	}
 }
 
-func (r *roomRepository) GetRoomInfo(ID string) (entities.Room, error) {
+func (r *roomRepository) SDKGetRoomInfo(ID string) (entities.Room, error) {
 	var room entities.Room
 
 	url := r.sdkURL + "/rest/get_rooms_info?room_ids%5B%5D=" + ID
@@ -67,7 +80,244 @@ func (r *roomRepository) StateExist(room entities.Room) bool {
 	var roomOptions map[string]string
 	json.Unmarshal([]byte(room.Results.Rooms[0].Options), &roomOptions)
 
-	_, ok := roomOptions["bot_state"]
+	_, ok := roomOptions["bot_layer"]
 
 	return ok
+}
+
+func (r *roomRepository) UpdateRoom(ID string, options string) error {
+	url := fmt.Sprintf("%s/rest/update_room", r.sdkURL)
+	method := "POST"
+	payload, err := json.Marshal(map[string]string{
+		"room_id":      ID,
+		"room_options": options,
+	})
+	if err != nil {
+		return err
+	}
+
+	client := &http.Client{}
+
+	req, err := http.NewRequest(method, url, bytes.NewBuffer(payload))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("QISCUS-SDK-APP-ID", r.multichannel.GetAppID())
+	req.Header.Set("QISCUS-SDK-SECRET", r.multichannel.GetSecret())
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	logger.WriteOutbondLog(r.outbondLogger, resp, string(body), string(payload))
+
+	return nil
+}
+
+func (r *roomRepository) Resolve(ID string, lastCommentID string) error {
+	url := fmt.Sprintf("%s/api/v1/admin/service/mark_as_resolved", r.qismoUrl)
+	method := "POST"
+	payload, err := json.Marshal(map[string]string{
+		"room_id":         ID,
+		"last_comment_id": lastCommentID,
+	})
+	if err != nil {
+		return err
+	}
+
+	client := &http.Client{}
+	req, err := http.NewRequest(method, url, bytes.NewBuffer(payload))
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Qiscus-App-Id", r.multichannel.GetAppID())
+	req.Header.Set("Qiscus-Secret-Key", r.multichannel.GetSecret())
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	logger.WriteOutbondLog(r.outbondLogger, resp, string(body), string(payload))
+
+	return nil
+}
+
+func (r *roomRepository) QismoRoomInfo(ID string) (viewmodel.QismoRoomInfo, error) {
+	url := fmt.Sprintf("%s/api/v2/customer_rooms/44605415", r.qismoUrl)
+	method := "POST"
+
+	client := &http.Client{}
+
+	req, err := http.NewRequest(method, url, nil)
+	if err != nil {
+		return viewmodel.QismoRoomInfo{}, err
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return viewmodel.QismoRoomInfo{}, err
+	}
+
+	defer resp.Body.Close()
+
+	var room viewmodel.QismoRoomInfo
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return viewmodel.QismoRoomInfo{}, err
+	}
+	json.Unmarshal(body, &room)
+
+	logger.WriteOutbondLog(r.outbondLogger, resp, string(body), "")
+
+	return room, nil
+}
+
+func (r *roomRepository) ResetBotLayers(ID string) error {
+	roomInfo, err := r.SDKGetRoomInfo(ID)
+	if err != nil {
+		return err
+	}
+
+	var roomOptions map[string]interface{}
+	json.Unmarshal([]byte(roomInfo.Results.Rooms[0].Options), &roomOptions)
+
+	delete(roomOptions, "bot_layer")
+	options, err := json.Marshal(roomOptions)
+	if err != nil {
+		return err
+	}
+
+	err = r.UpdateRoom(ID, string(options))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *roomRepository) TagRoom(ID string, tag string) error {
+	url := fmt.Sprintf("%s/api/v1/room_tag/create", r.qismoUrl)
+	method := "POST"
+	payload, err := json.Marshal(map[string]string{
+		"room_id": ID,
+		"tag":     os.Getenv("AUTO_RESOLVE_TAG"),
+	})
+	if err != nil {
+		return err
+	}
+
+	client := &http.Client{}
+
+	req, err := http.NewRequest(method, url, bytes.NewBuffer(payload))
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Authorization", r.multichannel.GetToken())
+	req.Header.Set("Qiscus-App-Id", r.multichannel.GetAppID())
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+
+	logger.WriteOutbondLog(r.outbondLogger, resp, string(body), string(payload))
+
+	return nil
+}
+
+func (r *roomRepository) AutoAssign(ID string) error {
+	url := fmt.Sprintf("%s/api/v1/admin/service/allocate_assign_agent", r.qismoUrl)
+	method := "POST"
+
+	payload, err := json.Marshal(map[string]string{
+		"room_id": ID,
+	})
+	if err != nil {
+		return err
+	}
+
+	client := &http.Client{}
+	req, err := http.NewRequest(method, url, bytes.NewBuffer(payload))
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Qiscus-App-Id", r.multichannel.GetAppID())
+	req.Header.Set("Qiscus-Secret-Key", r.multichannel.GetSecret())
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	logger.WriteOutbondLog(r.outbondLogger, resp, string(body), string(payload))
+
+	return nil
+}
+
+func (r *roomRepository) AssignAgent(ID string, agentID string) error {
+	apiUrl := fmt.Sprintf("%s/api/v1/admin/service/assign_agent", r.qismoUrl)
+	method := "POST"
+
+	formData := url.Values{}
+	formData.Set("agent_id", agentID)
+	formData.Set("room_id", ID)
+
+	client := &http.Client{}
+	req, err := http.NewRequest(method, apiUrl, bytes.NewBufferString(formData.Encode()))
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Qiscus-App-Id", r.multichannel.GetAppID())
+	req.Header.Set("Qiscus-Secret-Key", r.multichannel.GetSecret())
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	logger.WriteOutbondLog(r.outbondLogger, resp, string(body), formData.Encode())
+
+	return nil
 }
