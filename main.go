@@ -45,5 +45,5 @@ func main() {
 	route := routes.New(e, multichannel, loggers["outbond"])
 	route.RegisterRoute()
 
-	e.Logger.Fatal(e.Start(":1234"))
+	e.Logger.Fatal(e.Start(":" + os.Getenv("PORT")))
 }
