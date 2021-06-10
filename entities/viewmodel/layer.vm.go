@@ -6,4 +6,5 @@ type Layer struct {
 	Handover bool    `json:"handover"`
 	Input    bool    `json:"input"`
 	Resolve  bool    `json:"resolve"`
+	Division string  `json:"division"`
 }

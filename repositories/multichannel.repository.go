@@ -17,6 +17,8 @@ type MultichannelRepository interface {
 	SendBotMessage(roomID string, message string) error
 	GetAllAgents(limit int) (viewmodel.AgentsResponse, error)
 	OfficeHour() (viewmodel.OfficeHourResp, error)
+	GetAllDivisions() (viewmodel.Divisions, error)
+	GetAgentsByDivision(divisionID string) (viewmodel.AgentsByDivision, error)
 }
 
 type multichannelRepository struct {
@@ -149,4 +151,76 @@ func (r *multichannelRepository) OfficeHour() (viewmodel.OfficeHourResp, error) 
 	json.Unmarshal(body, &officeHour)
 
 	return officeHour, nil
+}
+
+func (r *multichannelRepository) GetAllDivisions() (viewmodel.Divisions, error) {
+	url := fmt.Sprintf("%s/api/v2/divisions", r.qismoURL)
+	client := &http.Client{}
+
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return viewmodel.Divisions{}, err
+	}
+
+	qParams := req.URL.Query()
+	qParams.Add("limit", "100")
+	req.URL.RawQuery = qParams.Encode()
+
+	req.Header.Set("Authorization", r.multichannel.GetToken())
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return viewmodel.Divisions{}, err
+	}
+
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return viewmodel.Divisions{}, err
+	}
+
+	logger.WriteOutbondLog(r.outbondLogger, resp, string(body), "")
+
+	var divisions viewmodel.Divisions
+	json.Unmarshal(body, &divisions)
+
+	return divisions, nil
+}
+
+func (r *multichannelRepository) GetAgentsByDivision(divisionID string) (viewmodel.AgentsByDivision, error) {
+	url := fmt.Sprintf("%s/api/v2/admin/agents/by_division", r.qismoURL)
+
+	client := &http.Client{}
+
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return viewmodel.AgentsByDivision{}, err
+	}
+
+	qParams := req.URL.Query()
+	qParams.Add("limit", "100")
+	qParams.Add("division_ids[]", divisionID)
+	req.URL.RawQuery = qParams.Encode()
+
+	req.Header.Set("Authorization", r.multichannel.GetToken())
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return viewmodel.AgentsByDivision{}, nil
+	}
+
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return viewmodel.AgentsByDivision{}, nil
+	}
+
+	logger.WriteOutbondLog(r.outbondLogger, resp, string(body), "")
+
+	var agents viewmodel.AgentsByDivision
+	json.Unmarshal(body, &agents)
+
+	return agents, nil
 }

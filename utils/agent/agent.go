@@ -5,21 +5,34 @@ import (
 	"math/rand"
 )
 
-func GetAvailableRandomlyAgent(agents []viewmodel.Agent) viewmodel.Agent {
-	var sortedAgents []viewmodel.Agent
+func GetAvailableRandomlyAgent(agents []viewmodel.Agent) (bool, viewmodel.Agent) {
+	var onlineAgents []viewmodel.Agent
 	for _, agent := range agents {
 		if agent.IsAvailable {
-			sortedAgents = append(sortedAgents, agent)
+			onlineAgents = append(onlineAgents, agent)
 		}
 	}
 
-	var randomIndex int
-	if len(sortedAgents) > 0 {
-		randomIndex = rand.Intn(len(sortedAgents)-0) + 0
-
-		return sortedAgents[randomIndex]
+	if len(onlineAgents) > 0 {
+		randomIndex := rand.Intn(len(onlineAgents)-0) + 0
+		return false, onlineAgents[randomIndex]
 	}
 
-	randomIndex = rand.Intn(len(agents)-0) + 0
+	return false, viewmodel.Agent{}
+}
+
+func GetDivisionByName(divisionName string, divisions []viewmodel.Division) viewmodel.Division {
+	for _, division := range divisions {
+		if divisionName == division.Name {
+			return division
+		}
+	}
+
+	return viewmodel.Division{}
+}
+
+func GetRandomAgent(agents []viewmodel.Agent) viewmodel.Agent {
+	randomIndex := rand.Intn(len(agents)-0) + 0
+
 	return agents[randomIndex]
 }

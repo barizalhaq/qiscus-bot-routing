@@ -160,3 +160,26 @@ type WebhookResolved struct {
 		Source         string `json:"source"`
 	} `json:"service"`
 }
+
+type Divisions struct {
+	Data []Division `json:"data"`
+}
+
+type Division struct {
+	ID            int    `json:"id"`
+	Name          string `json:"name"`
+	AppID         int    `json:"app_id"`
+	IsDefaultRole bool   `json:"is_default_role"`
+	CreatedAt     string `json:"created_at"`
+	UpdatedAt     string `json:"updated_at"`
+}
+
+type AgentsByDivision struct {
+	Data []Agent `json:"data"`
+	Meta struct {
+		Limit     int `json:"limit"`
+		Page      int `json:"page"`
+		Total     int `json:"total"`
+		TotalPage int `json:"total_page"`
+	}
+}

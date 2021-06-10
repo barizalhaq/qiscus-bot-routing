@@ -64,7 +64,13 @@ func (controller *messageController) MessageReceived(ctx echo.Context) error {
 					return ctx.JSON(http.StatusUnprocessableEntity, viewmodel.ErrorResponse{Message: err.Error()})
 				}
 			}
-			err := controller.roomService.Handover(draft.Room.Payload.Room.ID)
+
+			if len(draft.Layer.Division) > 0 {
+				err = controller.roomService.HandoverWithDivision(draft.Room.Payload.Room.ID, draft.Layer.Division)
+			} else {
+				err = controller.roomService.Handover(draft.Room.Payload.Room.ID)
+			}
+
 			if err != nil {
 				return ctx.JSON(http.StatusUnprocessableEntity, viewmodel.ErrorResponse{Message: err.Error()})
 			}
