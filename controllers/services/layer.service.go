@@ -74,7 +74,7 @@ func (s *layerService) DetermineLayer(state string, states []int, layer viewmode
 		return layer, errors.New("mohon untuk menjawab pilihan layanan hanya dalam format angka (misal: ketik '1'), sesuai dengan pilihan yang disediakan. Terima kasih")
 	}
 
-	if option < 0 || option > len(layer.Options) {
+	if option <= 0 || option > len(layer.Options) {
 		return layer, errors.New("mohon untuk menjawab pilihan layanan hanya dalam format angka (misal: ketik '1'), sesuai dengan pilihan yang disediakan. Terima kasih")
 	}
 
