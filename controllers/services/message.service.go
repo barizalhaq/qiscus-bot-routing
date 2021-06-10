@@ -46,7 +46,6 @@ func (s *messageService) Determine(request interface{}) (drafts []viewmodel.Draf
 	}
 
 	if !s.isOnWorkingHour() {
-		fmt.Println("Here", os.Getenv("NOT_IN_WORKING_HOUR_WORDING"))
 		notInWorkingHourDraft := viewmodel.Draft{
 			Room: input,
 			Layer: viewmodel.Layer{
@@ -113,6 +112,7 @@ func (s *messageService) isOnWorkingHour() bool {
 	loc, _ := time.LoadLocation(os.Getenv("TIMEZONE"))
 
 	now := time.Now().In(loc)
+	fmt.Println(now.Hour(), now.Local().Hour())
 	for _, day := range officeHour.Data.OfficeHours {
 		if int(now.Weekday()) == day.Day || int(time.Saturday)+1 == day.Day {
 			officeHourStartTime := fmt.Sprintf("%d-%d-%d %s", now.Year(), now.Month(), now.Day(), day.Starttime)
