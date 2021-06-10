@@ -36,6 +36,7 @@ func (s *messageService) Determine(request interface{}) (drafts []viewmodel.Draf
 	}
 
 	layer, err := NewLayerService().GetLayer(roomOption.ChannelDetails.ChannelID)
+	fmt.Println(layer)
 	if err != nil {
 		return
 	}
