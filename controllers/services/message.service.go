@@ -127,12 +127,24 @@ func (s *messageService) isOnWorkingHour() bool {
 				panic(err.Error())
 			}
 
-			if now.Hour() >= parsedStartTime.Hour() && now.Local().Minute() >= parsedStartTime.Minute() {
-				if now.Hour() <= parsedEndTime.Hour() {
+			if now.Hour() > parsedStartTime.Hour() {
+				if now.Hour() < parsedEndTime.Hour() {
 					return true
 				} else if now.Hour() == parsedEndTime.Hour() {
-					return now.Local().Minute() <= parsedEndTime.Minute()
+					return now.Minute() <= parsedEndTime.Minute()
 				}
+
+				return false
+			} else if now.Hour() == parsedStartTime.Hour() {
+				if now.Minute() >= parsedStartTime.Minute() {
+					if now.Hour() < parsedEndTime.Hour() {
+						return true
+					} else if now.Hour() == parsedEndTime.Hour() {
+						return now.Minute() <= parsedEndTime.Minute()
+					}
+				}
+
+				return false
 			}
 
 			return false
