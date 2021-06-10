@@ -5,17 +5,19 @@ import (
 	"math/rand"
 )
 
-func GetAvailableRandomlyAgent(agents []viewmodel.Agent) (bool, viewmodel.Agent) {
+func GetAvailableRandomlyAgent(agents []viewmodel.Agent, poolAgents []viewmodel.Agent) (bool, viewmodel.Agent) {
 	var onlineAgents []viewmodel.Agent
 	for _, agent := range agents {
-		if agent.IsAvailable {
-			onlineAgents = append(onlineAgents, agent)
+		for _, poolAgent := range poolAgents {
+			if agent.IsAvailable && agent.ID != poolAgent.ID {
+				onlineAgents = append(onlineAgents, agent)
+			}
 		}
 	}
 
 	if len(onlineAgents) > 0 {
 		randomIndex := rand.Intn(len(onlineAgents)-0) + 0
-		return false, onlineAgents[randomIndex]
+		return true, onlineAgents[randomIndex]
 	}
 
 	return false, viewmodel.Agent{}

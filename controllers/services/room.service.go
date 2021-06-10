@@ -114,14 +114,19 @@ func (s *roomService) Handover(ID string) error {
 		return err
 	}
 
-	anyOnline, agentData := agent.GetAvailableRandomlyAgent(agents.Data.Agents)
+	poolAgents, err := s.getPoolAgents()
+	if err != nil {
+		return err
+	}
+
+	anyOnline, agentData := agent.GetAvailableRandomlyAgent(agents.Data.Agents, poolAgents)
 	if anyOnline {
 		err = s.roomRepository.AssignAgent(ID, strconv.Itoa(agentData.ID))
 		if err != nil {
 			return err
 		}
 	} else {
-		err = s.assignPoolAgent(ID)
+		err = s.assignPoolAgent(ID, poolAgents)
 		if err != nil {
 			return err
 		}
@@ -139,23 +144,10 @@ func (s *roomService) Deactivate(ID string) error {
 	return s.roomRepository.ToggleBotInRoom(ID, false)
 }
 
-func (s *roomService) assignPoolAgent(roomID string) error {
-	poolAgentDivisionName := os.Getenv("POOL_AGENT_DIVISION")
+func (s *roomService) assignPoolAgent(roomID string, agents []viewmodel.Agent) error {
+	agentData := agent.GetRandomAgent(agents)
 
-	divisions, err := s.multichannelRepository.GetAllDivisions()
-	if err != nil {
-		return err
-	}
-
-	divisionData := agent.GetDivisionByName(poolAgentDivisionName, divisions.Data)
-	agents, err := s.multichannelRepository.GetAgentsByDivision(strconv.Itoa(divisionData.ID))
-	if err != nil {
-		return err
-	}
-
-	agentData := agent.GetRandomAgent(agents.Data)
-
-	err = s.roomRepository.AssignAgent(roomID, strconv.Itoa(agentData.ID))
+	err := s.roomRepository.AssignAgent(roomID, strconv.Itoa(agentData.ID))
 	if err != nil {
 		return err
 	}
@@ -181,18 +173,40 @@ func (s *roomService) HandoverWithDivision(ID string, divisionName string) error
 		return err
 	}
 
-	anyOnline, agentData := agent.GetAvailableRandomlyAgent(agents.Data)
+	poolAgents, err := s.getPoolAgents()
+	if err != nil {
+		return err
+	}
+
+	anyOnline, agentData := agent.GetAvailableRandomlyAgent(agents.Data, poolAgents)
 	if anyOnline {
 		err = s.roomRepository.AssignAgent(ID, strconv.Itoa(agentData.ID))
 		if err != nil {
 			return err
 		}
 	} else {
-		err = s.assignPoolAgent(ID)
+		err = s.assignPoolAgent(ID, poolAgents)
 		if err != nil {
 			return err
 		}
 	}
 
 	return nil
+}
+
+func (s *roomService) getPoolAgents() ([]viewmodel.Agent, error) {
+	poolAgentDivisionName := os.Getenv("POOL_AGENT_DIVISION")
+
+	divisions, err := s.multichannelRepository.GetAllDivisions()
+	if err != nil {
+		return []viewmodel.Agent{}, err
+	}
+
+	divisionData := agent.GetDivisionByName(poolAgentDivisionName, divisions.Data)
+	agents, err := s.multichannelRepository.GetAgentsByDivision(strconv.Itoa(divisionData.ID))
+	if err != nil {
+		return []viewmodel.Agent{}, err
+	}
+
+	return agents.Data, nil
 }
