@@ -40,7 +40,7 @@ func (controller *messageController) MessageReceived(ctx echo.Context) error {
 		}
 
 		if draft.Layer.Resolve && !draft.Layer.Handover {
-			if len(draft.Layer.Message) > 0 {
+			if len(draft.Message) > 0 {
 				err = controller.roomService.SendBotMessage(draft.Room.Payload.Room.ID, draft.Message)
 				if err != nil {
 					return ctx.JSON(http.StatusUnprocessableEntity, viewmodel.ErrorResponse{Message: err.Error()})
@@ -58,6 +58,12 @@ func (controller *messageController) MessageReceived(ctx echo.Context) error {
 		}
 
 		if draft.Layer.Handover {
+			if len(draft.Message) > 0 {
+				err = controller.roomService.SendBotMessage(draft.Room.Payload.Room.ID, draft.Message)
+				if err != nil {
+					return ctx.JSON(http.StatusUnprocessableEntity, viewmodel.ErrorResponse{Message: err.Error()})
+				}
+			}
 			err := controller.roomService.Handover(draft.Room.Payload.Room.ID)
 			if err != nil {
 				return ctx.JSON(http.StatusUnprocessableEntity, viewmodel.ErrorResponse{Message: err.Error()})

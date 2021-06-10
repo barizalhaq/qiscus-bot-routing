@@ -46,14 +46,17 @@ func (s *messageService) Determine(request interface{}) (drafts []viewmodel.Draf
 	}
 
 	if !s.isOnWorkingHour() {
-		notInWorkingHourDraft := &draft
-		notInWorkingHourDraft.Layer = viewmodel.Layer{
+		fmt.Println("Here", os.Getenv("NOT_IN_WORKING_HOUR_WORDING"))
+		notInWorkingHourDraft := viewmodel.Draft{
+			Room: input,
+			Layer: viewmodel.Layer{
+				Resolve: true,
+			},
 			Message: os.Getenv("NOT_IN_WORKING_HOUR_WORDING"),
-			Resolve: true,
 		}
-		drafts = append(drafts, *notInWorkingHourDraft)
+		drafts = append(drafts, notInWorkingHourDraft)
 
-		return
+		return drafts, nil
 	}
 
 	var states []int
@@ -68,12 +71,14 @@ func (s *messageService) Determine(request interface{}) (drafts []viewmodel.Draf
 		json.Unmarshal(jsonOptions["bot_layer"], &states)
 
 		if directKeypad, directAssignEnable := os.LookupEnv("DIRECT_ASSIGN_AGENT_KEYPAD"); directAssignEnable && input.Payload.Message.Text == directKeypad && len(states) == 0 {
-			directHandoverDraft := &draft
-			directHandoverDraft.Layer = viewmodel.Layer{
-				Message:  "Mohon tunggu sebentar, Anda akan terhubung dengan agent Brodo",
-				Handover: true,
+			directHandoverDraft := viewmodel.Draft{
+				Room: input,
+				Layer: viewmodel.Layer{
+					Handover: true,
+				},
+				Message: os.Getenv("WAITING_FOR_AGENT_WORDING"),
 			}
-			drafts = append(drafts, draft)
+			drafts = append(drafts, directHandoverDraft)
 			return
 		}
 

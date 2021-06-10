@@ -7,7 +7,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/joho/godotenv"
+	// "github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 )
@@ -19,7 +19,7 @@ func init() {
 	loggers["inbound"] = logger.InitLogger("./logs/inbound", "")
 	loggers["outbond"] = logger.InitLogger("./logs/outbond", "")
 
-	godotenv.Load(".env")
+	// godotenv.Load(".env")
 }
 
 func main() {
