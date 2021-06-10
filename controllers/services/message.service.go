@@ -36,7 +36,6 @@ func (s *messageService) Determine(request interface{}) (drafts []viewmodel.Draf
 	}
 
 	layer, err := NewLayerService().GetLayer(roomOption.ChannelDetails.ChannelID)
-	fmt.Println(layer)
 	if err != nil {
 		return
 	}
@@ -113,7 +112,6 @@ func (s *messageService) isOnWorkingHour() bool {
 	loc, _ := time.LoadLocation(os.Getenv("TIMEZONE"))
 
 	now := time.Now().In(loc)
-	fmt.Println(now.Hour(), now.Local().Hour())
 	for _, day := range officeHour.Data.OfficeHours {
 		if int(now.Weekday()) == day.Day || int(time.Saturday)+1 == day.Day {
 			officeHourStartTime := fmt.Sprintf("%d-%d-%d %s", now.Year(), now.Month(), now.Day(), day.Starttime)
@@ -129,10 +127,10 @@ func (s *messageService) isOnWorkingHour() bool {
 				panic(err.Error())
 			}
 
-			if now.Local().Hour() >= parsedStartTime.Hour() && now.Local().Minute() >= parsedStartTime.Minute() {
-				if now.Local().Hour() <= parsedEndTime.Hour() {
+			if now.Hour() >= parsedStartTime.Hour() && now.Local().Minute() >= parsedStartTime.Minute() {
+				if now.Hour() <= parsedEndTime.Hour() {
 					return true
-				} else if now.Local().Hour() == parsedEndTime.Hour() {
+				} else if now.Hour() == parsedEndTime.Hour() {
 					return now.Local().Minute() <= parsedEndTime.Minute()
 				}
 			}
