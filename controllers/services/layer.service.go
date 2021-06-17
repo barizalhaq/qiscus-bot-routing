@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"strconv"
 )
@@ -23,9 +24,18 @@ func NewLayerService() *layerService {
 }
 
 func (ls *layerService) GetLayer(source int) (viewmodel.Layer, error) {
+	layerURL, layerURLExist := os.LookupEnv(fmt.Sprintf("%v_LAYER_URL", source))
+	if layerURLExist {
+		return ls.getLayerFromURL(source, layerURL)
+	}
+
 	filePath := fmt.Sprintf("./layer/%d.json", source)
 
 	if os.Getenv("ALL_IN_ONE_JSON_ROUTE") == "true" {
+		layerURL, layerURLExist = os.LookupEnv("LAYER_URL")
+		if layerURLExist {
+			return ls.getLayerFromURL(source, layerURL)
+		}
 		filePath = "./layer/layer.json"
 	}
 
@@ -40,6 +50,31 @@ func (ls *layerService) GetLayer(source int) (viewmodel.Layer, error) {
 
 	var layer viewmodel.Layer
 	json.Unmarshal(byteValue, &layer)
+
+	return layer, nil
+}
+
+func (s *layerService) getLayerFromURL(source int, url string) (viewmodel.Layer, error) {
+	resp, err := http.Get(url)
+	if err != nil {
+		return viewmodel.Layer{}, err
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return viewmodel.Layer{}, fmt.Errorf("unexpected http GET status: %s", resp.Status)
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return viewmodel.Layer{}, err
+	}
+
+	var layer viewmodel.Layer
+	json.Unmarshal(body, &layer)
+
+	fmt.Println(layer)
 
 	return layer, nil
 }
