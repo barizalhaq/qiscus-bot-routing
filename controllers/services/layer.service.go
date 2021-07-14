@@ -74,8 +74,6 @@ func (s *layerService) getLayerFromURL(source int, url string) (viewmodel.Layer,
 	var layer viewmodel.Layer
 	json.Unmarshal(body, &layer)
 
-	fmt.Println(layer)
-
 	return layer, nil
 }
 

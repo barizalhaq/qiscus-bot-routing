@@ -51,7 +51,7 @@ func (controller *messageController) MessageReceived(ctx echo.Context) error {
 				return ctx.JSON(http.StatusUnprocessableEntity, viewmodel.ErrorResponse{Message: err.Error()})
 			}
 
-			err = controller.roomService.Resolve(draft.Room.Payload.Room.ID, strconv.Itoa(qismoRoomInfo.Data.ID))
+			err = controller.roomService.Resolve(draft.Room.Payload.Room.ID, strconv.Itoa(qismoRoomInfo.Data.CustomerRoom.ID))
 			if err != nil {
 				return ctx.JSON(http.StatusUnprocessableEntity, viewmodel.ErrorResponse{Message: err.Error()})
 			}
