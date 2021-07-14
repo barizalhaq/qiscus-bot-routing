@@ -119,7 +119,7 @@ func (s *roomService) Handover(ID string) error {
 		return err
 	}
 
-	anyOnline, agentData := agent.GetAvailableRandomlyAgent(agents.Data.Agents, poolAgents)
+	anyOnline, agentData := agent.GetAvailableRandomlyAgent(agents.Data.Agents)
 	if anyOnline {
 		err = s.roomRepository.AssignAgent(ID, strconv.Itoa(agentData.ID))
 		if err != nil {
@@ -178,7 +178,7 @@ func (s *roomService) HandoverWithDivision(ID string, divisionName string) error
 		return err
 	}
 
-	anyOnline, agentData := agent.GetAvailableRandomlyAgent(agents.Data, poolAgents)
+	anyOnline, agentData := agent.GetAvailableRandomlyAgent(agents.Data)
 	if anyOnline {
 		err = s.roomRepository.AssignAgent(ID, strconv.Itoa(agentData.ID))
 		if err != nil {

@@ -163,8 +163,8 @@ func (r *roomRepository) Resolve(ID string, lastCommentID string) error {
 }
 
 func (r *roomRepository) QismoRoomInfo(ID string) (viewmodel.QismoRoomInfo, error) {
-	url := fmt.Sprintf("%s/api/v2/customer_rooms/44605415", r.qismoUrl)
-	method := "POST"
+	url := fmt.Sprintf("%s/api/v2/customer_rooms/%s", r.qismoUrl, ID)
+	method := "GET"
 
 	client := &http.Client{}
 
@@ -172,6 +172,10 @@ func (r *roomRepository) QismoRoomInfo(ID string) (viewmodel.QismoRoomInfo, erro
 	if err != nil {
 		return viewmodel.QismoRoomInfo{}, err
 	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", r.multichannel.GetToken())
+	req.Header.Set("Qiscus-App-Id", r.multichannel.GetAppID())
 
 	resp, err := client.Do(req)
 	if err != nil {

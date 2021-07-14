@@ -68,9 +68,11 @@ type Draft struct {
 
 type QismoRoomInfo struct {
 	Data struct {
-		ChannelID int    `json:"channel_id"`
-		ID        int    `json:"id"`
-		Name      string `json:"name"`
+		CustomerRoom struct {
+			ChannelID int    `json:"channel_id"`
+			ID        int    `json:"id"`
+			Name      string `json:"name"`
+		} `json:"customer_room"`
 	} `json:"data"`
 	Status int `json:"status"`
 }
