@@ -104,7 +104,7 @@ func (s *roomService) AutoResolveTag(ID string) error {
 }
 
 func (s *roomService) Handover(ID string) error {
-	agents, err := s.multichannelRepository.GetAllAgents(18)
+	agents, err := s.multichannelRepository.GetAllAgents(100)
 	if err != nil {
 		return err
 	}

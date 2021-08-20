@@ -108,13 +108,6 @@ func (r *multichannelRepository) GetAllAgents(limit int) (viewmodel.AgentsRespon
 	var agentsResp viewmodel.AgentsResponse
 	json.Unmarshal(body, &agentsResp)
 
-	if agentsResp.Meta.PerPage < agentsResp.Meta.TotalCount {
-		agentsResp, err = r.GetAllAgents(agentsResp.Meta.TotalCount)
-		if err != nil {
-			return viewmodel.AgentsResponse{}, err
-		}
-	}
-
 	return agentsResp, nil
 }
 
