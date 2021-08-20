@@ -3,6 +3,7 @@ package agent
 import (
 	"bot-routing-engine/entities/viewmodel"
 	"math/rand"
+	"time"
 )
 
 func GetAvailableRandomlyAgent(agents []viewmodel.Agent) (bool, viewmodel.Agent) {
@@ -14,6 +15,7 @@ func GetAvailableRandomlyAgent(agents []viewmodel.Agent) (bool, viewmodel.Agent)
 	}
 
 	if len(onlineAgents) > 0 {
+		rand.Seed(time.Now().Unix())
 		randomIndex := rand.Intn(len(onlineAgents))
 		return true, onlineAgents[randomIndex]
 	}
@@ -32,7 +34,8 @@ func GetDivisionByName(divisionName string, divisions []viewmodel.Division) view
 }
 
 func GetRandomAgent(agents []viewmodel.Agent) viewmodel.Agent {
-	randomIndex := rand.Intn(len(agents)-0) + 0
+	rand.Seed(time.Now().Unix())
+	randomIndex := rand.Intn(len(agents))
 
 	return agents[randomIndex]
 }
