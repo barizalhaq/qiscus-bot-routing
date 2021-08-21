@@ -309,6 +309,7 @@ func (r *roomRepository) ToggleBotInRoom(ID string, activate bool) error {
 	}
 
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Qiscus-App-Id", r.multichannel.GetAppID())
 	req.Header.Set("Authorization", r.multichannel.GetToken())
 
 	resp, err := client.Do(req)
