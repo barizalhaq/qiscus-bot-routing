@@ -9,7 +9,7 @@ import (
 func GetAvailableRandomlyAgent(agents []viewmodel.Agent) (bool, viewmodel.Agent) {
 	var onlineAgents []viewmodel.Agent
 	for _, agent := range agents {
-		if agent.IsAvailable {
+		if agent.IsAvailable && agent.TypeStr == "agent" {
 			onlineAgents = append(onlineAgents, agent)
 		}
 	}
@@ -34,8 +34,16 @@ func GetDivisionByName(divisionName string, divisions []viewmodel.Division) view
 }
 
 func GetRandomAgent(agents []viewmodel.Agent) viewmodel.Agent {
-	rand.Seed(time.Now().Unix())
-	randomIndex := rand.Intn(len(agents))
+	var agentsOnly []viewmodel.Agent
 
-	return agents[randomIndex]
+	for _, agent := range agents {
+		if agent.TypeStr == "agent" {
+			agentsOnly = append(agentsOnly, agent)
+		}
+	}
+
+	rand.Seed(time.Now().Unix())
+	randomIndex := rand.Intn(len(agentsOnly))
+
+	return agentsOnly[randomIndex]
 }
