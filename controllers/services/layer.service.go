@@ -93,7 +93,7 @@ func (s *layerService) DetermineLayer(state string, states []int, layer viewmode
 		}
 
 		layer = s.getLatestLayer(states, layer)
-		if layer.Handover || layer.Resolve {
+		if layer.Handover || layer.Resolve || layer.AddAdditionalInformation {
 			return layer, nil
 		}
 	}

@@ -18,13 +18,14 @@ import (
 type RoomRepository interface {
 	SDKGetRoomInfo(ID string) (entities.Room, error)
 	StateExist(room entities.Room) bool
-	UpdateRoom(ID string, options string) error
+	UpdateRoom(ID string, options string) (entities.ReturnedUpdatedRoom, error)
 	Resolve(ID string, lastCommentID string) error
 	QismoRoomInfo(ID string) (viewmodel.QismoRoomInfo, error)
 	ResetBotLayers(ID string) error
 	TagRoom(ID string, tag string) error
 	AssignAgent(ID string, agentID string) error
 	ToggleBotInRoom(ID string, activate bool) error
+	FormStateExist(room entities.Room) bool
 }
 
 type roomRepository struct {
@@ -86,7 +87,7 @@ func (r *roomRepository) StateExist(room entities.Room) bool {
 	return ok
 }
 
-func (r *roomRepository) UpdateRoom(ID string, options string) error {
+func (r *roomRepository) UpdateRoom(ID string, options string) (entities.ReturnedUpdatedRoom, error) {
 	url := fmt.Sprintf("%s/rest/update_room", r.sdkURL)
 	method := "POST"
 	payload, err := json.Marshal(map[string]string{
@@ -94,14 +95,14 @@ func (r *roomRepository) UpdateRoom(ID string, options string) error {
 		"room_options": options,
 	})
 	if err != nil {
-		return err
+		return entities.ReturnedUpdatedRoom{}, err
 	}
 
 	client := &http.Client{}
 
 	req, err := http.NewRequest(method, url, bytes.NewBuffer(payload))
 	if err != nil {
-		return err
+		return entities.ReturnedUpdatedRoom{}, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("QISCUS-SDK-APP-ID", r.multichannel.GetAppID())
@@ -109,19 +110,22 @@ func (r *roomRepository) UpdateRoom(ID string, options string) error {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return err
+		return entities.ReturnedUpdatedRoom{}, err
 	}
 
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return err
+		return entities.ReturnedUpdatedRoom{}, err
 	}
+
+	var updatedRoom entities.ReturnedUpdatedRoom
+	json.Unmarshal(body, &updatedRoom)
 
 	logger.WriteOutbondLog(r.outbondLogger, resp, string(body), string(payload))
 
-	return nil
+	return updatedRoom, nil
 }
 
 func (r *roomRepository) Resolve(ID string, lastCommentID string) error {
@@ -211,7 +215,7 @@ func (r *roomRepository) ResetBotLayers(ID string) error {
 		return err
 	}
 
-	err = r.UpdateRoom(ID, string(options))
+	_, err = r.UpdateRoom(ID, string(options))
 	if err != nil {
 		return err
 	}
@@ -323,3 +327,14 @@ func (r *roomRepository) ToggleBotInRoom(ID string, activate bool) error {
 
 	return nil
 }
+
+func (r *roomRepository) FormStateExist(room entities.Room) bool {
+	var roomOptions map[string]string
+	json.Unmarshal([]byte(room.Results.Rooms[0].Options), &roomOptions)
+
+	_, ok := roomOptions["forms_layer_index"]
+
+	return ok
+}
+
+// func

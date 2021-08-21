@@ -14,13 +14,14 @@ type RoomService interface {
 	SendBotMessage(roomID string, message string) error
 	Resolve(roomID string, lastCommentID string) error
 	SDKGetRoomInfo(ID string) (entities.Room, error)
-	UpdateBotState(roomID string, states []int, roomInfo entities.Room) error
+	UpdateBotState(roomID string, states []int, roomInfo entities.Room) (entities.ReturnedUpdatedRoom, error)
 	StateExist(room entities.Room) bool
 	QismoRoomInfo(ID string) (viewmodel.QismoRoomInfo, error)
 	AutoResolveTag(ID string) error
 	Handover(ID string) error
 	HandoverWithDivision(ID string, division string) error
 	Deactivate(ID string) error
+	UpdateFormsState(roomID string, states int, roomInfo entities.Room) error
 }
 
 type roomService struct {
@@ -67,7 +68,7 @@ func (s *roomService) SDKGetRoomInfo(ID string) (entities.Room, error) {
 	return room, nil
 }
 
-func (s *roomService) UpdateBotState(roomID string, states []int, roomInfo entities.Room) error {
+func (s *roomService) UpdateBotState(roomID string, states []int, roomInfo entities.Room) (entities.ReturnedUpdatedRoom, error) {
 	var roomOptions map[string]interface{}
 	json.Unmarshal([]byte(roomInfo.Results.Rooms[0].Options), &roomOptions)
 
@@ -75,15 +76,15 @@ func (s *roomService) UpdateBotState(roomID string, states []int, roomInfo entit
 
 	roomOptionsJson, err := json.Marshal(roomOptions)
 	if err != nil {
-		return err
+		return entities.ReturnedUpdatedRoom{}, err
 	}
 
-	err = s.roomRepository.UpdateRoom(roomID, string(roomOptionsJson))
+	updatedRoom, err := s.roomRepository.UpdateRoom(roomID, string(roomOptionsJson))
 	if err != nil {
-		return err
+		return entities.ReturnedUpdatedRoom{}, err
 	}
 
-	return nil
+	return updatedRoom, nil
 }
 
 func (s *roomService) StateExist(room entities.Room) bool {
@@ -209,4 +210,23 @@ func (s *roomService) getPoolAgents() ([]viewmodel.Agent, error) {
 	}
 
 	return agents.Data, nil
+}
+
+func (s *roomService) UpdateFormsState(roomID string, states int, roomInfo entities.Room) error {
+	var roomOptions map[string]interface{}
+	json.Unmarshal([]byte(roomInfo.Results.Rooms[0].Options), &roomOptions)
+
+	roomOptions["forms_layer_index"] = states
+
+	roomOptionsJson, err := json.Marshal(roomOptions)
+	if err != nil {
+		return err
+	}
+
+	_, err = s.roomRepository.UpdateRoom(roomID, string(roomOptionsJson))
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

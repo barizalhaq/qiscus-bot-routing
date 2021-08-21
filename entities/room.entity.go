@@ -15,3 +15,11 @@ type Rooms struct {
 	Options   string `json:"room_options"`
 	Type      string `json:"type"`
 }
+
+type ReturnedUpdatedRoom struct {
+	Results struct {
+		Changed bool  `json:"changed"`
+		Room    Rooms `json:"room"`
+	} `json:"results"`
+	Status int `json:"status"`
+}

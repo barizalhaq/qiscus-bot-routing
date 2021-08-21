@@ -5,6 +5,7 @@ import (
 	"bot-routing-engine/repositories"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 
@@ -97,10 +98,22 @@ func (s *messageService) Determine(request interface{}) (drafts []viewmodel.Draf
 			optionInt, _ := strconv.Atoi(option)
 			states = append(states, optionInt)
 		}
-		s.room.UpdateBotState(input.Payload.Room.ID, states, roomInfo)
-		draft.Message = choosenLayer.Message
-		draft.Layer = choosenLayer
-		drafts = append(drafts, draft)
+
+		var formState int
+		json.Unmarshal(jsonOptions["forms_layer_index"], &formState)
+
+		if jsonOptions["forms_layer_index"] == nil {
+			s.room.UpdateBotState(input.Payload.Room.ID, states, roomInfo)
+		}
+
+		if choosenLayer.AddAdditionalInformation {
+			drafts = s.handleAdditionalInformation(input.Payload.Room.ID, drafts, option, choosenLayer, formState, input)
+		} else {
+			draft.Message = choosenLayer.Message
+			draft.Layer = choosenLayer
+			drafts = append(drafts, draft)
+		}
+
 		return drafts, nil
 	}
 
@@ -152,4 +165,45 @@ func (s *messageService) isOnWorkingHour() bool {
 	}
 
 	return false
+}
+
+func (s *messageService) handleAdditionalInformation(roomID string, existingDrafts []viewmodel.Draft, textMessage string, layer viewmodel.Layer, latestFormState int, input *viewmodel.WebhookRequest) []viewmodel.Draft {
+	roomInfo, err := s.room.SDKGetRoomInfo(input.Payload.Room.ID)
+	if err != nil {
+		log.Fatalf("Something went wrong: %s", err.Error())
+		return []viewmodel.Draft{}
+	}
+	formStateExist := s.room.roomRepository.FormStateExist(roomInfo)
+	draft := viewmodel.Draft{
+		Room:  input,
+		Layer: layer,
+	}
+
+	if !formStateExist {
+		draft.Message = layer.AdditionalInformation.Forms[0].Question
+		existingDrafts = append(existingDrafts, draft)
+		s.room.UpdateFormsState(roomID, 0, roomInfo)
+		return existingDrafts
+	}
+
+	nextFormIndex := latestFormState + 1
+	if nextFormIndex >= len(layer.AdditionalInformation.Forms) {
+		handoverAfterQuestioner := viewmodel.Draft{
+			Room: input,
+			Layer: viewmodel.Layer{
+				Handover: true,
+			},
+			Message: "Tunggu agent",
+		}
+
+		existingDrafts = append(existingDrafts, handoverAfterQuestioner)
+		return existingDrafts
+	}
+
+	nextForm := layer.AdditionalInformation.Forms[nextFormIndex]
+	draft.Message = nextForm.Question
+
+	existingDrafts = append(existingDrafts, draft)
+	s.room.UpdateFormsState(roomID, nextFormIndex, roomInfo)
+	return existingDrafts
 }
