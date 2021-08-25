@@ -6,6 +6,7 @@ import (
 	"bot-routing-engine/repositories"
 	"bot-routing-engine/utils/agent"
 	"encoding/json"
+	"log"
 	"os"
 	"strconv"
 )
@@ -22,6 +23,10 @@ type RoomService interface {
 	HandoverWithDivision(ID string, division string) error
 	Deactivate(ID string) error
 	UpdateFormsState(roomID string, states int, roomInfo entities.Room) error
+	SaveNewFormData(roomID string, newData map[string]string) error
+	UpdateSavedFormData(roomID string, key string, newValue string) error
+	SetFormConfirmationStatus(roomID string, status bool, roomInfo entities.Room) error
+	SetFormOnEditIndex(roomID string, index int, roomInfo entities.Room) error
 }
 
 type roomService struct {
@@ -217,6 +222,100 @@ func (s *roomService) UpdateFormsState(roomID string, states int, roomInfo entit
 	json.Unmarshal([]byte(roomInfo.Results.Rooms[0].Options), &roomOptions)
 
 	roomOptions["forms_layer_index"] = states
+
+	roomOptionsJson, err := json.Marshal(roomOptions)
+	if err != nil {
+		return err
+	}
+
+	_, err = s.roomRepository.UpdateRoom(roomID, string(roomOptionsJson))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *roomService) SaveNewFormData(roomID string, newData map[string]string) error {
+	userInfo, err := s.roomRepository.GetRoomUserInfo(roomID)
+	if err != nil {
+		log.Fatalf("Something went wrong: %s", err.Error())
+		return err
+	}
+
+	if len(userInfo.Data.Extras.UserProperties) > 0 {
+		for _, info := range userInfo.Data.Extras.UserProperties {
+			if info["key"] == newData["key"] {
+				return s.UpdateSavedFormData(roomID, newData["key"], newData["value"])
+			}
+		}
+	}
+
+	apendedUserInfo := append(userInfo.Data.Extras.UserProperties, newData)
+
+	data := map[string][]map[string]string{
+		"user_properties": apendedUserInfo,
+	}
+	err = s.roomRepository.SaveUserInfo(roomID, data)
+	if err != nil {
+		log.Fatalf("Something went wrong: %s", err.Error())
+		return err
+	}
+
+	return nil
+}
+
+func (s *roomService) UpdateSavedFormData(roomID string, key string, newValue string) error {
+	userInfo, err := s.roomRepository.GetRoomUserInfo(roomID)
+	if err != nil {
+		log.Fatalf("Something went wrong: %s", err.Error())
+		return err
+	}
+
+	existingInformation := userInfo.Data.Extras.UserProperties
+	for _, info := range existingInformation {
+		if info["key"] == key {
+			info["value"] = newValue
+		}
+	}
+
+	data := map[string][]map[string]string{
+		"user_properties": existingInformation,
+	}
+
+	err = s.roomRepository.SaveUserInfo(roomID, data)
+	if err != nil {
+		log.Fatalf("Something went wrong: %s", err.Error())
+		return err
+	}
+
+	return nil
+}
+
+func (s *roomService) SetFormConfirmationStatus(roomID string, status bool, roomInfo entities.Room) error {
+	var roomOptions map[string]interface{}
+	json.Unmarshal([]byte(roomInfo.Results.Rooms[0].Options), &roomOptions)
+
+	roomOptions["form_confirmed"] = status
+
+	roomOptionsJson, err := json.Marshal(roomOptions)
+	if err != nil {
+		return err
+	}
+
+	_, err = s.roomRepository.UpdateRoom(roomID, string(roomOptionsJson))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *roomService) SetFormOnEditIndex(roomID string, index int, roomInfo entities.Room) error {
+	var roomOptions map[string]interface{}
+	json.Unmarshal([]byte(roomInfo.Results.Rooms[0].Options), &roomOptions)
+
+	roomOptions["form_on_edit_index"] = index
 
 	roomOptionsJson, err := json.Marshal(roomOptions)
 	if err != nil {

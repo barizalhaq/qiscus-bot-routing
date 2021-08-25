@@ -14,6 +14,7 @@ import (
 type LayerService interface {
 	GetLayer(source int) (viewmodel.Layer, error)
 	DetermineLayer(state string, states []int, layer viewmodel.Layer) (viewmodel.Layer, error)
+	GetFormConfirmationOption(state string, layer viewmodel.Layer) (bool, string, error)
 }
 
 type layerService struct {
@@ -114,4 +115,17 @@ func (s *layerService) DetermineLayer(state string, states []int, layer viewmode
 	layer = layer.Options[option-1]
 
 	return layer, nil
+}
+
+func (s *layerService) GetFormConfirmationOption(state string, layer viewmodel.Layer) (bool, string, error) {
+	confirmationOptions := layer.AdditionalInformation.FormsConfirmation.Options
+
+	option, err := strconv.Atoi(state)
+	if err != nil || option <= 0 || option > len(confirmationOptions) {
+		return false, "", errors.New("Mohon untuk menjawab pilihan layanan hanya dalam format angka (misal: ketik '1'), sesuai dengan pilihan yang disediakan. Terima kasih")
+	}
+
+	fmt.Println(confirmationOptions[option-1].Confirmed)
+
+	return confirmationOptions[option-1].Confirmed, confirmationOptions[option-1].Message, nil
 }

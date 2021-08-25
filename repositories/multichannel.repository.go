@@ -160,6 +160,7 @@ func (r *multichannelRepository) GetAllDivisions() (viewmodel.Divisions, error) 
 	req.URL.RawQuery = qParams.Encode()
 
 	req.Header.Set("Authorization", r.multichannel.GetToken())
+	req.Header.Set("Qiscus-App-Id", r.multichannel.GetAppID())
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -197,6 +198,7 @@ func (r *multichannelRepository) GetAgentsByDivision(divisionID string) (viewmod
 	req.URL.RawQuery = qParams.Encode()
 
 	req.Header.Set("Authorization", r.multichannel.GetToken())
+	req.Header.Set("Qiscus-App-Id", r.multichannel.GetAppID())
 
 	resp, err := client.Do(req)
 	if err != nil {

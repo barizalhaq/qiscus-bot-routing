@@ -3,6 +3,7 @@ package services
 import (
 	"bot-routing-engine/entities/viewmodel"
 	"bot-routing-engine/repositories"
+	"bot-routing-engine/utils/message"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -109,9 +110,16 @@ func (s *messageService) Determine(request interface{}) (drafts []viewmodel.Draf
 		if choosenLayer.AddAdditionalInformation {
 			drafts = s.handleAdditionalInformation(input.Payload.Room.ID, drafts, option, choosenLayer, formState, input)
 		} else {
-			draft.Message = choosenLayer.Message
 			draft.Layer = choosenLayer
-			drafts = append(drafts, draft)
+			if len(choosenLayer.Messages) > 0 {
+				for _, msg := range choosenLayer.Messages {
+					draft.Message = msg
+					drafts = append(drafts, draft)
+				}
+			} else {
+				draft.Message = choosenLayer.Message
+				drafts = append(drafts, draft)
+			}
 		}
 
 		return drafts, nil
@@ -186,17 +194,65 @@ func (s *messageService) handleAdditionalInformation(roomID string, existingDraf
 		return existingDrafts
 	}
 
+	newFormData := map[string]string{
+		"key":   layer.AdditionalInformation.Forms[latestFormState].Key,
+		"value": textMessage,
+	}
+	s.room.SaveNewFormData(roomID, newFormData)
+
 	nextFormIndex := latestFormState + 1
+	// Form is over
+	/*
+		if nextFormIndex >= len(layer.AdditionalInformation.Forms) {
+			userInfo, _ := s.room.roomRepository.GetRoomUserInfo(roomID)
+			confirmationMessage := message.FormConfirmationMessage(userInfo.Data.Extras.UserProperties, layer)
+			draft.Message = confirmationMessage
+			formConfirmed := s.room.roomRepository.FormConfirmed(roomInfo)
+
+			if !s.room.roomRepository.FormConfirmedExist(roomInfo) {
+				existingDrafts = append(existingDrafts, draft)
+				s.room.SetFormConfirmationStatus(roomID, false, roomInfo)
+			} else if !formConfirmed {
+				confirmed, msg, err := NewLayerService().GetFormConfirmationOption(textMessage, layer)
+				if err != nil {
+					draft.Message = err.Error()
+					existingDrafts = append(existingDrafts, draft)
+					draft.Message = confirmationMessage
+					existingDrafts = append(existingDrafts, draft)
+				} else if !confirmed && err == nil {
+					draft.Message = msg
+					existingDrafts = append(existingDrafts, draft)
+
+					s.room.SetFormConfirmationStatus(roomID, false, roomInfo)
+				} else {
+					formConfirmedResp := viewmodel.Draft{
+						Message: msg,
+						Layer: viewmodel.Layer{
+							Handover: true,
+						},
+						Room: input,
+					}
+					s.room.SetFormConfirmationStatus(roomID, true, roomInfo)
+					existingDrafts = append(existingDrafts, formConfirmedResp)
+				}
+			}
+			return existingDrafts
+		}
+	*/
+
 	if nextFormIndex >= len(layer.AdditionalInformation.Forms) {
-		handoverAfterQuestioner := viewmodel.Draft{
-			Room: input,
+		userInfo, _ := s.room.roomRepository.GetRoomUserInfo(roomID)
+		confirmationMessage := message.FormConfirmationMessage(userInfo.Data.Extras.UserProperties, layer)
+
+		formOverDraftMessage := viewmodel.Draft{
+			Message: confirmationMessage,
 			Layer: viewmodel.Layer{
 				Handover: true,
 			},
-			Message: "Tunggu agent",
+			Room: input,
 		}
 
-		existingDrafts = append(existingDrafts, handoverAfterQuestioner)
+		existingDrafts = append(existingDrafts, formOverDraftMessage)
 		return existingDrafts
 	}
 

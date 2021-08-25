@@ -23,3 +23,18 @@ type ReturnedUpdatedRoom struct {
 	} `json:"results"`
 	Status int `json:"status"`
 }
+
+type UserInfo struct {
+	Data struct {
+		Extras struct {
+			UserProperties []map[string]string `json:"user_properties"`
+		} `json:"extras"`
+		FirstInitiated         string      `json:"first_initiated"`
+		FirstAgentResponseTime interface{} `json:"first_agent_response_time"`
+		UserID                 string      `json:"user_id"`
+		ChannelID              int         `json:"channel_id"`
+		IsBlocked              bool        `json:"is_blocked"`
+		ChannelName            string      `json:"channel_name"`
+		Channel                interface{} `json:"channel"`
+	} `json:"data"`
+}

@@ -26,6 +26,10 @@ type RoomRepository interface {
 	AssignAgent(ID string, agentID string) error
 	ToggleBotInRoom(ID string, activate bool) error
 	FormStateExist(room entities.Room) bool
+	GetRoomUserInfo(ID string) (entities.UserInfo, error)
+	SaveUserInfo(ID string, data map[string][]map[string]string) error
+	FormConfirmedExist(room entities.Room) bool
+	FormConfirmed(room entities.Room) bool
 }
 
 type roomRepository struct {
@@ -210,6 +214,7 @@ func (r *roomRepository) ResetBotLayers(ID string) error {
 	json.Unmarshal([]byte(roomInfo.Results.Rooms[0].Options), &roomOptions)
 
 	delete(roomOptions, "bot_layer")
+	delete(roomOptions, "forms_layer_index")
 	options, err := json.Marshal(roomOptions)
 	if err != nil {
 		return err
@@ -338,4 +343,90 @@ func (r *roomRepository) FormStateExist(room entities.Room) bool {
 	return ok
 }
 
-// func
+func (r *roomRepository) GetRoomUserInfo(ID string) (entities.UserInfo, error) {
+	url := fmt.Sprintf("%s/api/v1/qiscus/room/%s/user_info", r.qismoUrl, ID)
+	method := "GET"
+
+	client := &http.Client{}
+
+	req, err := http.NewRequest(method, url, nil)
+	if err != nil {
+		log.Fatalf("Something went wrong: %s", err.Error())
+		return entities.UserInfo{}, err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Qiscus-App-Id", r.multichannel.GetAppID())
+	req.Header.Set("Authorization", r.multichannel.GetToken())
+
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatalf("Something went wrong: %s", err.Error())
+		return entities.UserInfo{}, err
+	}
+
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatalf("Something went wrong: %s", err.Error())
+		return entities.UserInfo{}, err
+	}
+
+	var roomUserInfo entities.UserInfo
+	json.Unmarshal(body, &roomUserInfo)
+
+	return roomUserInfo, nil
+}
+
+func (r *roomRepository) SaveUserInfo(ID string, data map[string][]map[string]string) error {
+	apiUrl := fmt.Sprintf("%s/api/v1/qiscus/room/%s/user_info", r.qismoUrl, ID)
+	method := "POST"
+	payload, _ := json.Marshal(data)
+
+	client := &http.Client{}
+
+	req, err := http.NewRequest(method, apiUrl, bytes.NewBuffer(payload))
+	if err != nil {
+		log.Fatalf("Something went wrong: %s", err.Error())
+		return err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", r.multichannel.GetToken())
+	req.Header.Set("Qiscus-App-Id", r.multichannel.GetAppID())
+
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatalf("Something went wrong: %s", err.Error())
+		return err
+	}
+
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatalf("Something went wrong: %s", err.Error())
+		return err
+	}
+
+	logger.WriteOutbondLog(r.outbondLogger, resp, string(body), string(payload))
+
+	return nil
+}
+
+func (r *roomRepository) FormConfirmedExist(room entities.Room) bool {
+	var roomOptions map[string]bool
+	json.Unmarshal([]byte(room.Results.Rooms[0].Options), &roomOptions)
+
+	_, ok := roomOptions["form_confirmed"]
+
+	return ok
+}
+
+func (r *roomRepository) FormConfirmed(room entities.Room) bool {
+	var roomOptions map[string]bool
+	json.Unmarshal([]byte(room.Results.Rooms[0].Options), &roomOptions)
+
+	return roomOptions["form_confirmed"]
+}
