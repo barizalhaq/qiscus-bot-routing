@@ -9,9 +9,13 @@ func FormConfirmationMessage(userInfo []map[string]string, layer viewmodel.Layer
 	messageLayout := layer.AdditionalInformation.FormsConfirmation.Message
 
 	var dataAsMessage string
-	for _, info := range userInfo {
-		list := fmt.Sprintf("%s: %s\n", info["key"], info["value"])
-		dataAsMessage = dataAsMessage + list
+	for _, form := range layer.AdditionalInformation.Forms {
+		for _, info := range userInfo {
+			if form.Key == info["key"] {
+				list := fmt.Sprintf("%s: %s\n", info["key"], info["value"])
+				dataAsMessage = dataAsMessage + list
+			}
+		}
 	}
 
 	confirmationMessage := fmt.Sprintf(messageLayout, dataAsMessage)
