@@ -19,8 +19,8 @@ type RoomService interface {
 	StateExist(room entities.Room) bool
 	QismoRoomInfo(ID string) (viewmodel.QismoRoomInfo, error)
 	AutoResolveTag(ID string) error
-	Handover(ID string) error
-	HandoverWithDivision(ID string, division string) error
+	Handover(ID string, channelID int) error
+	HandoverWithDivision(ID string, division string, channelID int) error
 	Deactivate(ID string) error
 	UpdateFormsState(roomID string, states int, roomInfo entities.Room) error
 	SaveNewFormData(roomID string, newData map[string]string) error
@@ -109,7 +109,7 @@ func (s *roomService) AutoResolveTag(ID string) error {
 	return s.roomRepository.TagRoom(ID, os.Getenv("AUTO_RESOLVE_TAG"))
 }
 
-func (s *roomService) Handover(ID string) error {
+func (s *roomService) Handover(ID string, channelID int) error {
 	agents, err := s.multichannelRepository.GetAllAgents(100)
 	if err != nil {
 		return err
@@ -125,14 +125,14 @@ func (s *roomService) Handover(ID string) error {
 		return err
 	}
 
-	anyOnline, agentData := agent.GetAvailableRandomlyAgent(agents.Data.Agents)
+	anyOnline, agentData := agent.GetAvailableRandomlyAgent(agents.Data.Agents, channelID)
 	if anyOnline {
 		err = s.roomRepository.AssignAgent(ID, strconv.Itoa(agentData.ID))
 		if err != nil {
 			return err
 		}
 	} else {
-		err = s.assignPoolAgent(ID, poolAgents)
+		err = s.assignPoolAgent(ID, poolAgents, channelID)
 		if err != nil {
 			return err
 		}
@@ -150,8 +150,8 @@ func (s *roomService) Deactivate(ID string) error {
 	return s.roomRepository.ToggleBotInRoom(ID, false)
 }
 
-func (s *roomService) assignPoolAgent(roomID string, agents []viewmodel.Agent) error {
-	agentData := agent.GetRandomAgent(agents)
+func (s *roomService) assignPoolAgent(roomID string, agents []viewmodel.Agent, channelID int) error {
+	agentData := agent.GetRandomAgent(agents, channelID)
 
 	err := s.roomRepository.AssignAgent(roomID, strconv.Itoa(agentData.ID))
 	if err != nil {
@@ -161,7 +161,7 @@ func (s *roomService) assignPoolAgent(roomID string, agents []viewmodel.Agent) e
 	return nil
 }
 
-func (s *roomService) HandoverWithDivision(ID string, divisionName string) error {
+func (s *roomService) HandoverWithDivision(ID string, divisionName string, channelID int) error {
 	err := s.roomRepository.ResetBotLayers(ID)
 	if err != nil {
 		return err
@@ -184,14 +184,14 @@ func (s *roomService) HandoverWithDivision(ID string, divisionName string) error
 		return err
 	}
 
-	anyOnline, agentData := agent.GetAvailableRandomlyAgent(agents.Data)
+	anyOnline, agentData := agent.GetAvailableRandomlyAgent(agents.Data, channelID)
 	if anyOnline {
 		err = s.roomRepository.AssignAgent(ID, strconv.Itoa(agentData.ID))
 		if err != nil {
 			return err
 		}
 	} else {
-		err = s.assignPoolAgent(ID, poolAgents)
+		err = s.assignPoolAgent(ID, poolAgents, channelID)
 		if err != nil {
 			return err
 		}

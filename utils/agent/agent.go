@@ -6,9 +6,18 @@ import (
 	"time"
 )
 
-func GetAvailableRandomlyAgent(agents []viewmodel.Agent) (bool, viewmodel.Agent) {
-	var onlineAgents []viewmodel.Agent
+func GetAvailableRandomlyAgent(agents []viewmodel.Agent, channelID int) (bool, viewmodel.Agent) {
+	var channelAgents []viewmodel.Agent
 	for _, agent := range agents {
+		for _, agentChannel := range agent.Channels {
+			if agentChannel.ID == channelID {
+				channelAgents = append(channelAgents, agent)
+			}
+		}
+	}
+
+	var onlineAgents []viewmodel.Agent
+	for _, agent := range channelAgents {
 		if agent.IsAvailable && agent.TypeStr == "agent" {
 			onlineAgents = append(onlineAgents, agent)
 		}
@@ -33,10 +42,18 @@ func GetDivisionByName(divisionName string, divisions []viewmodel.Division) view
 	return viewmodel.Division{}
 }
 
-func GetRandomAgent(agents []viewmodel.Agent) viewmodel.Agent {
-	var agentsOnly []viewmodel.Agent
-
+func GetRandomAgent(agents []viewmodel.Agent, channelID int) viewmodel.Agent {
+	var channelAgents []viewmodel.Agent
 	for _, agent := range agents {
+		for _, agentChannel := range agent.Channels {
+			if agentChannel.ID == channelID {
+				channelAgents = append(channelAgents, agent)
+			}
+		}
+	}
+
+	var agentsOnly []viewmodel.Agent
+	for _, agent := range channelAgents {
 		if agent.TypeStr == "agent" {
 			agentsOnly = append(agentsOnly, agent)
 		}

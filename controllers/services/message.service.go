@@ -87,8 +87,16 @@ func (s *messageService) Determine(request interface{}) (drafts []viewmodel.Draf
 		if err != nil {
 			draft.Message = err.Error()
 			drafts = append(drafts, draft)
-			draft.Message = choosenLayer.Message
-			drafts = append(drafts, draft)
+
+			if len(choosenLayer.Messages) > 0 {
+				for _, msg := range choosenLayer.Messages {
+					draft.Message = msg
+					drafts = append(drafts, draft)
+				}
+			} else {
+				draft.Message = choosenLayer.Message
+				drafts = append(drafts, draft)
+			}
 			return drafts, nil
 		}
 

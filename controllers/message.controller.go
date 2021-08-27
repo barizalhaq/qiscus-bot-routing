@@ -3,6 +3,7 @@ package controllers
 import (
 	"bot-routing-engine/controllers/services"
 	"bot-routing-engine/entities/viewmodel"
+	"encoding/json"
 	"net/http"
 	"strconv"
 
@@ -58,6 +59,10 @@ func (controller *messageController) MessageReceived(ctx echo.Context) error {
 		}
 
 		if draft.Layer.Handover {
+			input := reqBody.(*viewmodel.WebhookRequest)
+			var channelOption *viewmodel.Option
+			json.Unmarshal([]byte(input.Payload.Room.Options), &channelOption)
+
 			if len(draft.Message) > 0 {
 				err = controller.roomService.SendBotMessage(draft.Room.Payload.Room.ID, draft.Message)
 				if err != nil {
@@ -66,9 +71,9 @@ func (controller *messageController) MessageReceived(ctx echo.Context) error {
 			}
 
 			if len(draft.Layer.Division) > 0 {
-				err = controller.roomService.HandoverWithDivision(draft.Room.Payload.Room.ID, draft.Layer.Division)
+				err = controller.roomService.HandoverWithDivision(draft.Room.Payload.Room.ID, draft.Layer.Division, channelOption.ChannelDetails.ChannelID)
 			} else {
-				err = controller.roomService.Handover(draft.Room.Payload.Room.ID)
+				err = controller.roomService.Handover(draft.Room.Payload.Room.ID, channelOption.ChannelDetails.ChannelID)
 			}
 
 			if err != nil {
