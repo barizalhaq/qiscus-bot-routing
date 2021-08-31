@@ -15,14 +15,16 @@ type Layer struct {
 type AdditionalInformationType struct {
 	Forms             []AdditionalInformationForm `json:"forms"`
 	FormsConfirmation struct {
-		Message string                    `json:"message"`
-		Options []FormsConfirmationOption `json:"options"`
+		Message            string                    `json:"message"`
+		Options            []FormsConfirmationOption `json:"options"`
+		AdditionalMessages []string                  `json:"additional_messages"`
 	} `json:"forms_confirmation"`
 }
 
 type AdditionalInformationForm struct {
 	Question string `json:"question"`
 	Key      string `json:"key"`
+	EngKey   string `json:"eng_key"`
 }
 
 type AdditionalInformationConfirmationOption struct {

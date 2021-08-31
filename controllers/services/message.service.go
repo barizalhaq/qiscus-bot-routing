@@ -252,10 +252,18 @@ func (s *messageService) handleAdditionalInformation(roomID string, existingDraf
 		userInfo, _ := s.room.roomRepository.GetRoomUserInfo(roomID)
 		confirmationMessage := message.FormConfirmationMessage(userInfo.Data.Extras.UserProperties, layer)
 
+		if len(layer.AdditionalInformation.FormsConfirmation.AdditionalMessages) > 0 {
+			for _, msg := range layer.AdditionalInformation.FormsConfirmation.AdditionalMessages {
+				draft.Message = msg
+				existingDrafts = append(existingDrafts, draft)
+			}
+		}
+
 		formOverDraftMessage := viewmodel.Draft{
 			Message: confirmationMessage,
 			Layer: viewmodel.Layer{
 				Handover: true,
+				Division: layer.Division,
 			},
 			Room: input,
 		}
