@@ -196,6 +196,8 @@ func (s *messageService) handleAdditionalInformation(roomID string, existingDraf
 	}
 
 	if !formStateExist {
+		draft.Message = os.Getenv("ADDITIONAL_INFORMATION_INSTRUCTION")
+		existingDrafts = append(existingDrafts, draft)
 		draft.Message = layer.AdditionalInformation.Forms[0].Question
 		existingDrafts = append(existingDrafts, draft)
 		s.room.UpdateFormsState(roomID, 0, roomInfo)

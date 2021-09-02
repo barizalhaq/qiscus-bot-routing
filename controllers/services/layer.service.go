@@ -105,11 +105,11 @@ func (s *layerService) DetermineLayer(state string, states []int, layer viewmode
 
 	option, err := strconv.Atoi(state)
 	if err != nil {
-		return layer, errors.New("Mohon untuk menjawab pilihan layanan hanya dalam format angka (misal: ketik '1'), sesuai dengan pilihan yang disediakan. Terima kasih")
+		return layer, errors.New(os.Getenv("FALLBACK_MESSAGE"))
 	}
 
 	if option <= 0 || option > len(layer.Options) {
-		return layer, errors.New("Mohon untuk menjawab pilihan layanan hanya dalam format angka (misal: ketik '1'), sesuai dengan pilihan yang disediakan. Terima kasih")
+		return layer, errors.New(os.Getenv("FALLBACK_MESSAGE"))
 	}
 
 	layer = layer.Options[option-1]
@@ -122,7 +122,7 @@ func (s *layerService) GetFormConfirmationOption(state string, layer viewmodel.L
 
 	option, err := strconv.Atoi(state)
 	if err != nil || option <= 0 || option > len(confirmationOptions) {
-		return false, "", errors.New("Mohon untuk menjawab pilihan layanan hanya dalam format angka (misal: ketik '1'), sesuai dengan pilihan yang disediakan. Terima kasih")
+		return false, "", errors.New(os.Getenv("FALLBACK_MESSAGE"))
 	}
 
 	fmt.Println(confirmationOptions[option-1].Confirmed)

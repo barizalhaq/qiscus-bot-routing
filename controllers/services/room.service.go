@@ -110,6 +110,11 @@ func (s *roomService) AutoResolveTag(ID string) error {
 }
 
 func (s *roomService) Handover(ID string, channelID int) error {
+	err := s.Deactivate(ID)
+	if err != nil {
+		return err
+	}
+
 	agents, err := s.multichannelRepository.GetAllAgents(100)
 	if err != nil {
 		return err
@@ -138,11 +143,6 @@ func (s *roomService) Handover(ID string, channelID int) error {
 		}
 	}
 
-	err = s.Deactivate(ID)
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -162,7 +162,12 @@ func (s *roomService) assignPoolAgent(roomID string, agents []viewmodel.Agent, c
 }
 
 func (s *roomService) HandoverWithDivision(ID string, divisionName string, channelID int) error {
-	err := s.roomRepository.ResetBotLayers(ID)
+	err := s.Deactivate(ID)
+	if err != nil {
+		return err
+	}
+
+	err = s.roomRepository.ResetBotLayers(ID)
 	if err != nil {
 		return err
 	}
