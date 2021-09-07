@@ -28,8 +28,8 @@ type RoomRepository interface {
 	FormStateExist(room entities.Room) bool
 	GetRoomUserInfo(ID string) (entities.UserInfo, error)
 	SaveUserInfo(ID string, data map[string][]map[string]string) error
-	FormConfirmedExist(room entities.Room) bool
-	FormConfirmed(room entities.Room) bool
+	Confirming(room entities.Room) bool
+	DeleteRoomOption(ID string, key string) error
 }
 
 type roomRepository struct {
@@ -205,25 +205,10 @@ func (r *roomRepository) QismoRoomInfo(ID string) (viewmodel.QismoRoomInfo, erro
 }
 
 func (r *roomRepository) ResetBotLayers(ID string) error {
-	roomInfo, err := r.SDKGetRoomInfo(ID)
-	if err != nil {
-		return err
-	}
-
-	var roomOptions map[string]interface{}
-	json.Unmarshal([]byte(roomInfo.Results.Rooms[0].Options), &roomOptions)
-
-	delete(roomOptions, "bot_layer")
-	delete(roomOptions, "forms_layer_index")
-	options, err := json.Marshal(roomOptions)
-	if err != nil {
-		return err
-	}
-
-	_, err = r.UpdateRoom(ID, string(options))
-	if err != nil {
-		return err
-	}
+	r.DeleteRoomOption(ID, "bot_layer")
+	r.DeleteRoomOption(ID, "forms_layer_index")
+	r.DeleteRoomOption(ID, "nested_form_keys")
+	r.DeleteRoomOption(ID, "form_confirming")
 
 	return nil
 }
@@ -415,18 +400,38 @@ func (r *roomRepository) SaveUserInfo(ID string, data map[string][]map[string]st
 	return nil
 }
 
-func (r *roomRepository) FormConfirmedExist(room entities.Room) bool {
+func (r *roomRepository) Confirming(room entities.Room) bool {
 	var roomOptions map[string]bool
 	json.Unmarshal([]byte(room.Results.Rooms[0].Options), &roomOptions)
 
-	_, ok := roomOptions["form_confirmed"]
+	confirming, ok := roomOptions["form_confirming"]
+
+	if ok {
+		return confirming
+	}
 
 	return ok
 }
 
-func (r *roomRepository) FormConfirmed(room entities.Room) bool {
-	var roomOptions map[string]bool
-	json.Unmarshal([]byte(room.Results.Rooms[0].Options), &roomOptions)
+func (r *roomRepository) DeleteRoomOption(ID string, key string) error {
+	roomInfo, err := r.SDKGetRoomInfo(ID)
+	if err != nil {
+		return err
+	}
 
-	return roomOptions["form_confirmed"]
+	var roomOptions map[string]interface{}
+	json.Unmarshal([]byte(roomInfo.Results.Rooms[0].Options), &roomOptions)
+
+	delete(roomOptions, key)
+	options, err := json.Marshal(roomOptions)
+	if err != nil {
+		return err
+	}
+
+	_, err = r.UpdateRoom(ID, string(options))
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

@@ -14,7 +14,7 @@ func FormConfirmationMessage(userInfo []map[string]string, layer viewmodel.Layer
 			if form.Key == info["key"] {
 				var list string
 				if len(form.EngKey) > 0 {
-					list = fmt.Sprintf("%s: %s\n%s: %s\n\n", info["key"], info["value"], form.EngKey, info["value"])
+					list = fmt.Sprintf("%s: %s\n", form.EngKey, info["value"])
 				} else {
 					list = fmt.Sprintf("%s: %s\n", info["key"], info["value"])
 				}

@@ -63,7 +63,7 @@ func (s *messageService) Determine(request interface{}) (drafts []viewmodel.Draf
 	var states []int
 	option := input.Payload.Message.Text
 	if !s.room.StateExist(roomInfo) {
-		s.room.UpdateBotState(input.Payload.Room.ID, states, roomInfo)
+		s.room.UpdateBotState(input.Payload.Room.ID, states)
 		draft.Message = layer.Message
 		drafts = append(drafts, draft)
 	} else {
@@ -83,7 +83,7 @@ func (s *messageService) Determine(request interface{}) (drafts []viewmodel.Draf
 			return
 		}
 
-		choosenLayer, err := NewLayerService().DetermineLayer(option, states, layer)
+		choosenLayer, err := NewLayerService().DetermineLayer(option, states, layer, jsonOptions)
 		if err != nil {
 			draft.Message = err.Error()
 			drafts = append(drafts, draft)
@@ -100,23 +100,31 @@ func (s *messageService) Determine(request interface{}) (drafts []viewmodel.Draf
 			return drafts, nil
 		}
 
+		var formState int
+		json.Unmarshal(jsonOptions["forms_layer_index"], &formState)
+
 		if prevLayerKeypad, prevLayerKeypadEnable := os.LookupEnv("RETURN_PREVIOUS_LAYER_KEYPAD"); prevLayerKeypadEnable &&
-			input.Payload.Message.Text == prevLayerKeypad && len(states) > 0 {
+			input.Payload.Message.Text == prevLayerKeypad && len(states) > 0 && jsonOptions["forms_layer_index"] == nil {
 			states = states[:len(states)-1]
+		} else if resetLayerKeypad, resetLayerEnable := os.LookupEnv("RESET_LAYER_KEYPAD"); resetLayerEnable &&
+			input.Payload.Message.Text == resetLayerKeypad && len(states) > 0 && jsonOptions["forms_layer_index"] == nil {
+			lastIndex, _ := strconv.Atoi(os.Getenv("RESET_LAST_INDEX"))
+			states = states[:lastIndex]
 		} else {
 			optionInt, _ := strconv.Atoi(option)
 			states = append(states, optionInt)
 		}
 
-		var formState int
-		json.Unmarshal(jsonOptions["forms_layer_index"], &formState)
-
 		if jsonOptions["forms_layer_index"] == nil {
-			s.room.UpdateBotState(input.Payload.Room.ID, states, roomInfo)
+			s.room.UpdateBotState(input.Payload.Room.ID, states)
 		}
 
 		if choosenLayer.AddAdditionalInformation {
-			drafts = s.handleAdditionalInformation(input.Payload.Room.ID, drafts, option, choosenLayer, formState, input)
+			layers := map[string]viewmodel.Layer{
+				"existing": choosenLayer,
+				"channel":  layer,
+			}
+			drafts = s.handleAdditionalInformation(input.Payload.Room.ID, drafts, option, layers, formState, input, jsonOptions)
 		} else {
 			draft.Layer = choosenLayer
 			if len(choosenLayer.Messages) > 0 {
@@ -183,7 +191,9 @@ func (s *messageService) isOnWorkingHour() bool {
 	return false
 }
 
-func (s *messageService) handleAdditionalInformation(roomID string, existingDrafts []viewmodel.Draft, textMessage string, layer viewmodel.Layer, latestFormState int, input *viewmodel.WebhookRequest) []viewmodel.Draft {
+func (s *messageService) handleAdditionalInformation(roomID string, existingDrafts []viewmodel.Draft, textMessage string, layer map[string]viewmodel.Layer, latestFormState int, input *viewmodel.WebhookRequest, jsonOptions map[string]json.RawMessage) []viewmodel.Draft {
+	state := textMessage
+
 	roomInfo, err := s.room.SDKGetRoomInfo(input.Payload.Room.ID)
 	if err != nil {
 		log.Fatalf("Something went wrong: %s", err.Error())
@@ -192,25 +202,74 @@ func (s *messageService) handleAdditionalInformation(roomID string, existingDraf
 	formStateExist := s.room.roomRepository.FormStateExist(roomInfo)
 	draft := viewmodel.Draft{
 		Room:  input,
-		Layer: layer,
+		Layer: layer["existing"],
 	}
 
 	if !formStateExist {
-		draft.Message = os.Getenv("ADDITIONAL_INFORMATION_INSTRUCTION")
+		draft.Message = layer["existing"].AdditionalInformation.Instruction
 		existingDrafts = append(existingDrafts, draft)
-		draft.Message = layer.AdditionalInformation.Forms[0].Question
+		draft.Message = layer["existing"].AdditionalInformation.Forms[0].Question
 		existingDrafts = append(existingDrafts, draft)
-		s.room.UpdateFormsState(roomID, 0, roomInfo)
+		s.room.UpdateFormsState(roomID, 0)
 		return existingDrafts
 	}
 
+	formIsConfirming := s.room.FormConfirming(roomID)
+	/*
+		If multiple answers required
+	*/
+	ongoingForm := layer["existing"].AdditionalInformation.Forms[latestFormState]
+	var multipleAnswerState int
+	if !formIsConfirming {
+		if len(ongoingForm.Answers) > 0 {
+			textMessage, multipleAnswerState, err = NewLayerService().GetAnswer(textMessage, ongoingForm)
+			if err != nil {
+				draft.Message = err.Error()
+				existingDrafts = append(existingDrafts, draft)
+
+				draft.Message = ongoingForm.Question
+				existingDrafts = append(existingDrafts, draft)
+				return existingDrafts
+			}
+		}
+
+		/*
+			Nested question
+		*/
+		if len(ongoingForm.Questions) > 0 {
+			key := fmt.Sprintf("%s_question_index", ongoingForm.Key)
+
+			var nestedQuestionKeys map[string]int
+			json.Unmarshal(jsonOptions["nested_form_keys"], &nestedQuestionKeys)
+
+			nestedQuestion := ongoingForm.Questions[nestedQuestionKeys[key]]
+
+			/*
+				Multiple answers in nested question
+			*/
+			if len(nestedQuestion.Answers) > 0 {
+				textMessage, err = NewLayerService().GetNestedQuestionAnswer(textMessage, nestedQuestion)
+				if err != nil {
+					draft.Message = err.Error()
+					existingDrafts = append(existingDrafts, draft)
+
+					draft.Message = nestedQuestion.Question
+					existingDrafts = append(existingDrafts, draft)
+					return existingDrafts
+				}
+			}
+		}
+	}
+
+	/*
+		Save to room additional information first
+	*/
 	newFormData := map[string]string{
-		"key":   layer.AdditionalInformation.Forms[latestFormState].Key,
+		"key":   layer["existing"].AdditionalInformation.Forms[latestFormState].Key,
 		"value": textMessage,
 	}
 	s.room.SaveNewFormData(roomID, newFormData)
 
-	nextFormIndex := latestFormState + 1
 	// Form is over
 	/*
 		if nextFormIndex >= len(layer.AdditionalInformation.Forms) {
@@ -250,34 +309,96 @@ func (s *messageService) handleAdditionalInformation(roomID string, existingDraf
 		}
 	*/
 
-	if nextFormIndex >= len(layer.AdditionalInformation.Forms) {
+	/*
+		If forms is over asking question
+	*/
+	nextFormIndex := latestFormState + 1
+	if nextFormIndex >= len(layer["existing"].AdditionalInformation.Forms) {
 		userInfo, _ := s.room.roomRepository.GetRoomUserInfo(roomID)
-		confirmationMessage := message.FormConfirmationMessage(userInfo.Data.Extras.UserProperties, layer)
+		confirmationMessage := message.FormConfirmationMessage(userInfo.Data.Extras.UserProperties, layer["existing"])
 
-		if len(layer.AdditionalInformation.FormsConfirmation.AdditionalMessages) > 0 {
-			for _, msg := range layer.AdditionalInformation.FormsConfirmation.AdditionalMessages {
-				draft.Message = msg
+		if formIsConfirming {
+			resetLayerKeypad, resetLayerEnable := os.LookupEnv("RESET_LAYER_KEYPAD")
+			if resetLayerEnable && state == resetLayerKeypad {
+				s.room.roomRepository.DeleteRoomOption(roomID, "forms_layer_index")
+				s.room.roomRepository.DeleteRoomOption(roomID, "nested_form_keys")
+				s.room.roomRepository.DeleteRoomOption(roomID, "form_confirming")
+
+				states := s.room.ResetLayer(roomID)
+
+				choosenLayer := NewLayerService().getLatestLayer(states, layer["channel"])
+				draft.Message = choosenLayer.Message
+
 				existingDrafts = append(existingDrafts, draft)
+
+				return existingDrafts
+			}
+
+			option, err := NewLayerService().FormConfirmationOption(state, layer["existing"].AdditionalInformation.FormsConfirmation.Options)
+			if err != nil {
+				draft.Message = err.Error()
+				existingDrafts = append(existingDrafts, draft)
+
+				draft.Message = confirmationMessage
+				existingDrafts = append(existingDrafts, draft)
+
+				return existingDrafts
+			}
+
+			if option.Confirmed {
+				additionalMessages := layer["existing"].AdditionalInformation.FormsConfirmation.AdditionalMessages
+				if len(additionalMessages) > 0 {
+					for i, msg := range additionalMessages {
+						if i == len(additionalMessages)-1 {
+							draft.Layer = viewmodel.Layer{
+								Handover: true,
+								Division: layer["existing"].Division,
+							}
+						}
+						draft.Message = msg
+						existingDrafts = append(existingDrafts, draft)
+					}
+				}
+
+				return existingDrafts
+			}
+
+			if option.Reset {
+				s.room.roomRepository.DeleteRoomOption(roomID, "forms_layer_index")
+				s.room.roomRepository.DeleteRoomOption(roomID, "nested_form_keys")
+				s.room.roomRepository.DeleteRoomOption(roomID, "form_confirming")
+
+				draft.Message = layer["existing"].AdditionalInformation.Instruction
+				existingDrafts = append(existingDrafts, draft)
+				draft.Message = layer["existing"].AdditionalInformation.Forms[0].Question
+				existingDrafts = append(existingDrafts, draft)
+				s.room.UpdateFormsState(roomID, 0)
+				return existingDrafts
 			}
 		}
 
-		formOverDraftMessage := viewmodel.Draft{
-			Message: confirmationMessage,
-			Layer: viewmodel.Layer{
-				Handover: true,
-				Division: layer.Division,
-			},
-			Room: input,
-		}
+		draft.Message = confirmationMessage
+		existingDrafts = append(existingDrafts, draft)
 
-		existingDrafts = append(existingDrafts, formOverDraftMessage)
+		s.room.SetFormConfirming(roomID, true)
 		return existingDrafts
 	}
 
-	nextForm := layer.AdditionalInformation.Forms[nextFormIndex]
-	draft.Message = nextForm.Question
-
+	/*
+		Customer get next form question
+	*/
+	nextForm := layer["existing"].AdditionalInformation.Forms[nextFormIndex]
+	if len(nextForm.Questions) > 0 {
+		for _, index := range ongoingForm.RequiredBy {
+			key := fmt.Sprintf("%s_question_index", layer["existing"].AdditionalInformation.Forms[index].Key)
+			s.room.UpdateNestedFormState(roomID, multipleAnswerState, key)
+		}
+		draft.Message = nextForm.Questions[multipleAnswerState].Question
+	} else {
+		draft.Message = nextForm.Question
+	}
 	existingDrafts = append(existingDrafts, draft)
-	s.room.UpdateFormsState(roomID, nextFormIndex, roomInfo)
+
+	s.room.UpdateFormsState(roomID, nextFormIndex)
 	return existingDrafts
 }

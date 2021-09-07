@@ -19,12 +19,18 @@ type AdditionalInformationType struct {
 		Options            []FormsConfirmationOption `json:"options"`
 		AdditionalMessages []string                  `json:"additional_messages"`
 	} `json:"forms_confirmation"`
+	Instruction string `json:"instruction"`
 }
 
 type AdditionalInformationForm struct {
-	Question string `json:"question"`
-	Key      string `json:"key"`
-	EngKey   string `json:"eng_key"`
+	Question  string           `json:"question"`
+	Key       string           `json:"key"`
+	EngKey    string           `json:"eng_key"`
+	Questions []NestedQuestion `json:"questions"`
+	Answers   []struct {
+		Value string `json:"value"`
+	} `json:"answers"`
+	RequiredBy []int `json:"required_by"`
 }
 
 type AdditionalInformationConfirmationOption struct {
@@ -35,4 +41,12 @@ type AdditionalInformationConfirmationOption struct {
 type FormsConfirmationOption struct {
 	Confirmed bool   `json:"confirmed"`
 	Message   string `json:"message"`
+	Reset     bool   `json:"reset"`
+}
+
+type NestedQuestion struct {
+	Question string `json:"question"`
+	Answers  []struct {
+		Value string `json:"value"`
+	} `json:"answers"`
 }

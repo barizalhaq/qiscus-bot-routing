@@ -13,8 +13,11 @@ import (
 
 type LayerService interface {
 	GetLayer(source int) (viewmodel.Layer, error)
-	DetermineLayer(state string, states []int, layer viewmodel.Layer) (viewmodel.Layer, error)
+	DetermineLayer(state string, states []int, layer viewmodel.Layer, jsonOptions map[string]json.RawMessage) (viewmodel.Layer, error)
 	GetFormConfirmationOption(state string, layer viewmodel.Layer) (bool, string, error)
+	GetAnswer(state string, form viewmodel.AdditionalInformationForm) (string, int, error)
+	GetNestedQuestionAnswer(state string, question viewmodel.NestedQuestion) (string, error)
+	FormConfirmationOption(state string, confirmationOptions []viewmodel.FormsConfirmationOption) (viewmodel.FormsConfirmationOption, error)
 }
 
 type layerService struct {
@@ -85,12 +88,20 @@ func (s *layerService) getLatestLayer(states []int, layer viewmodel.Layer) viewm
 	return layer
 }
 
-func (s *layerService) DetermineLayer(state string, states []int, layer viewmodel.Layer) (viewmodel.Layer, error) {
+func (s *layerService) DetermineLayer(state string, states []int, layer viewmodel.Layer, jsonOptions map[string]json.RawMessage) (viewmodel.Layer, error) {
 	if len(states) > 0 {
 		if prevLayerKeypad, prevLayerKeypadEnable := os.LookupEnv("RETURN_PREVIOUS_LAYER_KEYPAD"); prevLayerKeypadEnable &&
-			state == prevLayerKeypad {
+			state == prevLayerKeypad && jsonOptions["forms_layer_index"] == nil {
 			removedLastState := states[:len(states)-1]
 			return s.getLatestLayer(removedLastState, layer), nil
+		}
+
+		if resetLayerKeypad, resetLayerEnable := os.LookupEnv("RESET_LAYER_KEYPAD"); resetLayerEnable &&
+			state == resetLayerKeypad && jsonOptions["forms_layer_index"] == nil {
+			lastIndex, _ := strconv.Atoi(os.Getenv("RESET_LAST_INDEX"))
+			afterResetStates := states[:lastIndex]
+
+			return s.getLatestLayer(afterResetStates, layer), nil
 		}
 
 		layer = s.getLatestLayer(states, layer)
@@ -125,7 +136,32 @@ func (s *layerService) GetFormConfirmationOption(state string, layer viewmodel.L
 		return false, "", errors.New(os.Getenv("FALLBACK_MESSAGE"))
 	}
 
-	fmt.Println(confirmationOptions[option-1].Confirmed)
-
 	return confirmationOptions[option-1].Confirmed, confirmationOptions[option-1].Message, nil
+}
+
+func (s *layerService) GetAnswer(state string, form viewmodel.AdditionalInformationForm) (string, int, error) {
+	option, err := strconv.Atoi(state)
+	if err != nil || option <= 0 || option > len(form.Answers) {
+		return "", 0, errors.New(os.Getenv("FALLBACK_MESSAGE"))
+	}
+
+	return form.Answers[option-1].Value, option - 1, nil
+}
+
+func (s *layerService) GetNestedQuestionAnswer(state string, question viewmodel.NestedQuestion) (string, error) {
+	option, err := strconv.Atoi(state)
+	if err != nil || option <= 0 || option > len(question.Answers) {
+		return "", errors.New(os.Getenv("FALLBACK_MESSAGE"))
+	}
+
+	return question.Answers[option-1].Value, nil
+}
+
+func (s *layerService) FormConfirmationOption(state string, confirmationOptions []viewmodel.FormsConfirmationOption) (viewmodel.FormsConfirmationOption, error) {
+	option, err := strconv.Atoi(state)
+	if err != nil || option <= 0 || option > len(confirmationOptions) {
+		return viewmodel.FormsConfirmationOption{}, errors.New(os.Getenv("FALLBACK_MESSAGE"))
+	}
+
+	return confirmationOptions[option-1], nil
 }
