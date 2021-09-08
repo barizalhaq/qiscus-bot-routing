@@ -259,55 +259,15 @@ func (s *messageService) handleAdditionalInformation(roomID string, existingDraf
 				}
 			}
 		}
-	}
-
-	/*
-		Save to room additional information first
-	*/
-	newFormData := map[string]string{
-		"key":   layer["existing"].AdditionalInformation.Forms[latestFormState].Key,
-		"value": textMessage,
-	}
-	s.room.SaveNewFormData(roomID, newFormData)
-
-	// Form is over
-	/*
-		if nextFormIndex >= len(layer.AdditionalInformation.Forms) {
-			userInfo, _ := s.room.roomRepository.GetRoomUserInfo(roomID)
-			confirmationMessage := message.FormConfirmationMessage(userInfo.Data.Extras.UserProperties, layer)
-			draft.Message = confirmationMessage
-			formConfirmed := s.room.roomRepository.FormConfirmed(roomInfo)
-
-			if !s.room.roomRepository.FormConfirmedExist(roomInfo) {
-				existingDrafts = append(existingDrafts, draft)
-				s.room.SetFormConfirmationStatus(roomID, false, roomInfo)
-			} else if !formConfirmed {
-				confirmed, msg, err := NewLayerService().GetFormConfirmationOption(textMessage, layer)
-				if err != nil {
-					draft.Message = err.Error()
-					existingDrafts = append(existingDrafts, draft)
-					draft.Message = confirmationMessage
-					existingDrafts = append(existingDrafts, draft)
-				} else if !confirmed && err == nil {
-					draft.Message = msg
-					existingDrafts = append(existingDrafts, draft)
-
-					s.room.SetFormConfirmationStatus(roomID, false, roomInfo)
-				} else {
-					formConfirmedResp := viewmodel.Draft{
-						Message: msg,
-						Layer: viewmodel.Layer{
-							Handover: true,
-						},
-						Room: input,
-					}
-					s.room.SetFormConfirmationStatus(roomID, true, roomInfo)
-					existingDrafts = append(existingDrafts, formConfirmedResp)
-				}
-			}
-			return existingDrafts
+		/*
+			Save to room additional information first
+		*/
+		newFormData := map[string]string{
+			"key":   layer["existing"].AdditionalInformation.Forms[latestFormState].Key,
+			"value": textMessage,
 		}
-	*/
+		s.room.SaveNewFormData(roomID, newFormData)
+	}
 
 	/*
 		If forms is over asking question
