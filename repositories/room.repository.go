@@ -299,7 +299,6 @@ func (r *roomRepository) ToggleBotInRoom(ID string, activate bool) error {
 	}
 
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("Qiscus-App-Id", r.multichannel.GetAppID())
 	req.Header.Set("Authorization", r.multichannel.GetToken())
 
 	resp, err := client.Do(req)
@@ -341,7 +340,6 @@ func (r *roomRepository) GetRoomUserInfo(ID string) (entities.UserInfo, error) {
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Qiscus-App-Id", r.multichannel.GetAppID())
 	req.Header.Set("Authorization", r.multichannel.GetToken())
 
 	resp, err := client.Do(req)
@@ -378,8 +376,8 @@ func (r *roomRepository) SaveUserInfo(ID string, data map[string][]map[string]st
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", r.multichannel.GetToken())
 	req.Header.Set("Qiscus-App-Id", r.multichannel.GetAppID())
+	req.Header.Set("Qiscus-Secret-Key", r.multichannel.GetSecret())
 
 	resp, err := client.Do(req)
 	if err != nil {
