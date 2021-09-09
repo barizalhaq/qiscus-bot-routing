@@ -47,18 +47,18 @@ func (s *messageService) Determine(request interface{}) (drafts []viewmodel.Draf
 		Layer: layer,
 	}
 
-	if !s.isOnWorkingHour() {
-		notInWorkingHourDraft := viewmodel.Draft{
-			Room: input,
-			Layer: viewmodel.Layer{
-				Resolve: true,
-			},
-			Message: os.Getenv("NOT_IN_WORKING_HOUR_WORDING"),
-		}
-		drafts = append(drafts, notInWorkingHourDraft)
+	// if !s.isOnWorkingHour() {
+	// 	notInWorkingHourDraft := viewmodel.Draft{
+	// 		Room: input,
+	// 		Layer: viewmodel.Layer{
+	// 			Resolve: true,
+	// 		},
+	// 		Message: os.Getenv("NOT_IN_WORKING_HOUR_WORDING"),
+	// 	}
+	// 	drafts = append(drafts, notInWorkingHourDraft)
 
-		return drafts, nil
-	}
+	// 	return drafts, nil
+	// }
 
 	var states []int
 	option := input.Payload.Message.Text
